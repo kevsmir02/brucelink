@@ -1,0 +1,47 @@
+export const COLORS = {
+  background: '#0a0a0a',
+  surface: '#1a1a1a',
+  surfaceAlt: '#111111',
+  primary: '#00de00',
+  primaryDim: '#00aa00',
+  text: '#e0e0e0',
+  textMuted: '#888888',
+  error: '#ff4444',
+  errorDim: '#aa2222',
+  border: '#333333',
+  borderLight: '#444444',
+  warning: '#ffaa00',
+  overlay: 'rgba(0,0,0,0.7)',
+};
+
+export const FONTS = {
+  mono: 'Courier New',
+  monoSize: 13,
+  regular: undefined, // system default
+};
+
+export const STORAGE_KEYS = {
+  session: '@bruce_session',
+  baseUrl: '@bruce_base_url',
+  lastFs: '@bruce_last_fs',
+  lastPath: '@bruce_last_path',
+};
+
+export const DEFAULT_BASE_URL = 'http://192.168.4.1';
+export const DEFAULT_USERNAME = 'admin';
+export const DEFAULT_PASSWORD = 'bruce';
+
+export const EXECUTABLE_EXTENSIONS: Record<string, (path: string) => string> = {
+  '.ir': path => `ir tx_from_file "${path}"`,
+  '.sub': path => `subghz tx_from_file "${path}"`,
+  '.js': path => `js run_from_file "${path}"`,
+  '.bjs': path => `js run_from_file "${path}"`,
+  '.txt': path => `badusb run_from_file "${path}"`,
+  '.mp3': path => `play "${path}"`,
+  '.wav': path => `play "${path}"`,
+};
+
+export const TEXT_EXTENSIONS = [
+  '.txt', '.js', '.json', '.md', '.csv', '.log', '.cfg', '.ini',
+  '.bjs', '.ir', '.sub', '.py', '.sh', '.bat', '.xml', '.html',
+];

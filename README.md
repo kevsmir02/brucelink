@@ -1,97 +1,105 @@
-This is a new [**React Native**](https://reactnative.dev) project, bootstrapped using [`@react-native-community/cli`](https://github.com/react-native-community/cli).
+# BruceLink
 
-# Getting Started
+A React Native Android app for controlling the [Bruce ESP32 penetration testing firmware](https://github.com/pr3y/Bruce) over its local WiFi access point.
 
-> **Note**: Make sure you have completed the [Set Up Your Environment](https://reactnative.dev/docs/set-up-your-environment) guide before proceeding.
+## Features
 
-## Step 1: Start Metro
+- **Login** — connects to the Bruce device at a configurable IP with cookie-based session management
+- **Dashboard** — live firmware version, SD card and LittleFS storage usage bars, quick-action grid
+- **File Explorer** — browse SD and LittleFS filesystems, upload/download/rename/delete files, create folders/files, one-tap execution of `.ir`, `.sub`, `.js`, `.txt`, `.mp3` payloads
+- **File Editor** — full-screen monospace editor with save and run buttons, unsaved-change guard
+- **Terminal** — fire-and-forget CLI interface (`/cm` endpoint), quick-command chips, command history
+- **Settings** — change WebUI credentials, reboot device, logout
 
-First, you will need to run **Metro**, the JavaScript build tool for React Native.
+## Tech Stack
 
-To start the Metro dev server, run the following command from the root of your React Native project:
+| Package | Purpose |
+|---|---|
+| React Native 0.84 (bare workflow) | App framework |
+| TypeScript | Type safety throughout |
+| Axios | HTTP client with cookie interceptor |
+| `@react-native-async-storage/async-storage` | Persisting session token and base URL |
+| `react-native-fs` | Streaming file downloads to Android Downloads folder |
+| `@react-navigation/native-stack` | Screen navigation |
+| `react-native-vector-icons` (MaterialCommunityIcons) | UI icons |
 
-```sh
-# Using npm
-npm start
+## Prerequisites
 
-# OR using Yarn
-yarn start
+- Node.js ≥ 22
+- Android Studio with an emulator or physical Android device
+- JDK 17
+- A device running Bruce ESP32 firmware (or just the emulator for UI development)
+
+## Setup
+
+```bash
+git clone https://github.com/kevsmir02/brucelink.git
+cd brucelink
+npm install
 ```
-
-## Step 2: Build and run your app
-
-With Metro running, open a new terminal window/pane from the root of your React Native project, and use one of the following commands to build and run your Android or iOS app:
 
 ### Android
 
-```sh
-# Using npm
+```bash
+# Start Metro bundler
+npm start
+
+# In a separate terminal, build and install
 npm run android
-
-# OR using Yarn
-yarn android
 ```
 
-### iOS
+## Connecting to a Bruce Device
 
-For iOS, remember to install CocoaPods dependencies (this only needs to be run on first clone or after updating native deps).
+1. On your Android device, connect to the **BruceNet** WiFi access point (default password: `brucenet`)
+2. Open BruceLink
+3. Enter the device IP (default `192.168.4.1`), username (`admin`), and password (`bruce`)
+4. Tap **Connect**
 
-The first time you create a new project, run the Ruby bundler to install CocoaPods itself:
+> The app communicates exclusively over HTTP on the local AP — no internet connection is used or required.
 
-```sh
-bundle install
+## API Overview
+
+All communication targets the Bruce REST API at `http://192.168.4.1` (configurable):
+
+| Endpoint | Purpose |
+|---|---|
+| `POST /login` | Cookie-based auth (302 redirect, `BRUCESESSION` token) |
+| `GET /systeminfo` | Firmware version, storage stats |
+| `GET /listfiles` | Custom line-delimited directory listing |
+| `GET /file` | Download, edit, delete, create file/folder |
+| `POST /upload` | Multipart file upload |
+| `POST /rename` | Rename file or folder |
+| `POST /edit` | Save file content |
+| `POST /cm` | Send CLI command (fire-and-forget) |
+| `GET /wifi` | Update WebUI credentials |
+| `GET /reboot` | Reboot device |
+
+## Project Structure
+
+```
+src/
+├── services/api.ts          # Axios instance, cookie interceptor, all API calls
+├── types/index.ts           # Shared TypeScript interfaces
+├── navigation/AppNavigator  # Stack navigator + auth state
+├── screens/
+│   ├── LoginScreen.tsx
+│   ├── DashboardScreen.tsx
+│   ├── FileExplorerScreen.tsx
+│   ├── FileEditorScreen.tsx
+│   ├── TerminalScreen.tsx
+│   └── SettingsScreen.tsx
+├── components/
+│   ├── FileItem.tsx
+│   ├── StorageBar.tsx
+│   ├── QuickAction.tsx
+│   └── CommandChip.tsx
+├── hooks/useAuth.ts
+└── utils/
+    ├── constants.ts         # Colors, storage keys, executable extension map
+    ├── fileHelpers.ts       # /listfiles parser, path helpers
+    └── vibrate.ts           # Safe vibration wrapper
 ```
 
-Then, and every time you update your native dependencies, run:
+## License
 
-```sh
-bundle exec pod install
-```
-
-For more information, please visit [CocoaPods Getting Started guide](https://guides.cocoapods.org/using/getting-started.html).
-
-```sh
-# Using npm
-npm run ios
-
-# OR using Yarn
-yarn ios
-```
-
-If everything is set up correctly, you should see your new app running in the Android Emulator, iOS Simulator, or your connected device.
-
-This is one way to run your app — you can also build it directly from Android Studio or Xcode.
-
-## Step 3: Modify your app
-
-Now that you have successfully run the app, let's make changes!
-
-Open `App.tsx` in your text editor of choice and make some changes. When you save, your app will automatically update and reflect these changes — this is powered by [Fast Refresh](https://reactnative.dev/docs/fast-refresh).
-
-When you want to forcefully reload, for example to reset the state of your app, you can perform a full reload:
-
-- **Android**: Press the <kbd>R</kbd> key twice or select **"Reload"** from the **Dev Menu**, accessed via <kbd>Ctrl</kbd> + <kbd>M</kbd> (Windows/Linux) or <kbd>Cmd ⌘</kbd> + <kbd>M</kbd> (macOS).
-- **iOS**: Press <kbd>R</kbd> in iOS Simulator.
-
-## Congratulations! :tada:
-
-You've successfully run and modified your React Native App. :partying_face:
-
-### Now what?
-
-- If you want to add this new React Native code to an existing application, check out the [Integration guide](https://reactnative.dev/docs/integration-with-existing-apps).
-- If you're curious to learn more about React Native, check out the [docs](https://reactnative.dev/docs/getting-started).
-
-# Troubleshooting
-
-If you're having issues getting the above steps to work, see the [Troubleshooting](https://reactnative.dev/docs/troubleshooting) page.
-
-# Learn More
-
-To learn more about React Native, take a look at the following resources:
-
-- [React Native Website](https://reactnative.dev) - learn more about React Native.
-- [Getting Started](https://reactnative.dev/docs/environment-setup) - an **overview** of React Native and how setup your environment.
-- [Learn the Basics](https://reactnative.dev/docs/getting-started) - a **guided tour** of the React Native **basics**.
-- [Blog](https://reactnative.dev/blog) - read the latest official React Native **Blog** posts.
-- [`@facebook/react-native`](https://github.com/facebook/react-native) - the Open Source; GitHub **repository** for React Native.
+MIT
