@@ -57,6 +57,10 @@ npm run android
 
 > The app communicates exclusively over HTTP on the local AP — no internet connection is used or required.
 
+### Skip login (development builds only)
+
+In **`__DEV__`** (debug) builds, the login screen includes **Skip login — tweak UI (dev only)**. That opens the app immediately with **local placeholder data** so you can work on screens without a device. This control is **not** included in release builds.
+
 ## API Overview
 
 All communication targets the Bruce REST API at `http://192.168.4.1` (configurable):

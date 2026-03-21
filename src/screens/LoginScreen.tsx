@@ -14,7 +14,7 @@ import { vibrate } from '../utils/vibrate';
 import AsyncStorage from '@react-native-async-storage/async-storage';
 import { NativeStackScreenProps } from '@react-navigation/native-stack';
 import { RootStackParamList } from '../types';
-import { login } from '../services/api';
+import { login, enableDevBypass } from '../services/api';
 import { COLORS, STORAGE_KEYS, DEFAULT_BASE_URL, DEFAULT_USERNAME, DEFAULT_PASSWORD } from '../utils/constants';
 
 type Props = NativeStackScreenProps<RootStackParamList, 'Login'> & {
@@ -56,6 +56,23 @@ export function LoginScreen({ navigation, onLoginSuccess }: Props) {
         ? 'Device unreachable. Connect to the BruceNet WiFi AP first.'
         : `Error: ${msg}`);
       vibrate([0, 80, 50, 80]);
+    } finally {
+      setLoading(false);
+    }
+  };
+
+  const handleSkipLoginDev = async () => {
+    if (!__DEV__) return;
+    setError(null);
+    setLoading(true);
+    vibrate(20);
+    try {
+      const url = ip.trim() ? (ip.startsWith('http') ? ip : `http://${ip}`) : DEFAULT_BASE_URL;
+      await enableDevBypass(url);
+      onLoginSuccess(url.replace(/\/$/, ''));
+      navigation.replace('Dashboard');
+    } catch (err: any) {
+      setError(err.message ?? 'Skip login failed.');
     } finally {
       setLoading(false);
     }
@@ -132,11 +149,29 @@ export function LoginScreen({ navigation, onLoginSuccess }: Props) {
                 <Text style={styles.buttonText}>CONNECT</Text>
               )}
             </TouchableOpacity>
+
+            {__DEV__ && (
+              <TouchableOpacity
+                style={[styles.skipDevButton, loading && styles.buttonDisabled]}
+                onPress={handleSkipLoginDev}
+                disabled={loading}
+                activeOpacity={0.8}>
+                <Text style={styles.skipDevText}>SKIP LOGIN — TWEAK UI (DEV ONLY)</Text>
+              </TouchableOpacity>
+            )}
           </View>
 
           <Text style={styles.hint}>
             Connect your Android device to the{'\n'}
             <Text style={styles.hintAccent}>BruceNet</Text> WiFi access point first.
+            {__DEV__ ? (
+              <>
+                {'\n\n'}
+                <Text style={styles.hintMuted}>
+                  No device? Use <Text style={styles.hintAccent}>Skip login</Text> above to preview the UI.
+                </Text>
+              </>
+            ) : null}
           </Text>
         </ScrollView>
       </KeyboardAvoidingView>
@@ -244,6 +279,22 @@ const styles = StyleSheet.create({
     letterSpacing: 2,
     fontFamily: 'Courier New',
   },
+  skipDevButton: {
+    marginTop: 14,
+    borderRadius: 10,
+    paddingVertical: 12,
+    alignItems: 'center',
+    borderWidth: 1,
+    borderColor: '#555',
+    backgroundColor: COLORS.surfaceAlt,
+  },
+  skipDevText: {
+    color: COLORS.textMuted,
+    fontSize: 11,
+    fontWeight: '700',
+    letterSpacing: 0.5,
+    fontFamily: 'Courier New',
+  },
   hint: {
     color: COLORS.textMuted,
     fontSize: 13,
@@ -254,5 +305,10 @@ const styles = StyleSheet.create({
   hintAccent: {
     color: COLORS.primary,
     fontWeight: '600',
+  },
+  hintMuted: {
+    color: COLORS.textMuted,
+    fontSize: 11,
+    lineHeight: 16,
   },
 });

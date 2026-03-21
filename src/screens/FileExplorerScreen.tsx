@@ -1,4 +1,4 @@
-import React, { useState, useCallback, useLayoutEffect } from 'react';
+import React, { useState, useCallback, useLayoutEffect, useEffect } from 'react';
 import {
   View,
   Text,
@@ -11,12 +11,15 @@ import {
   ScrollView,
   Modal,
   ToastAndroid,
+  Image,
+  Animated,
 } from 'react-native';
 import { vibrate } from '../utils/vibrate';
 import { NativeStackScreenProps } from '@react-navigation/native-stack';
 import { useFocusEffect } from '@react-navigation/native';
 import AsyncStorage from '@react-native-async-storage/async-storage';
 import Icon from 'react-native-vector-icons/MaterialCommunityIcons';
+import DocumentPicker from 'react-native-document-picker';
 
 import { RootStackParamList, FileEntry, FileSystem } from '../types';
 import {
@@ -26,9 +29,13 @@ import {
   createFile,
   renameFile,
   downloadFile,
+  uploadFile,
   sendCommand,
+  getBaseUrl,
+  getSessionToken,
 } from '../services/api';
 import { FileItem } from '../components/FileItem';
+import { PromptModal } from '../components/PromptModal';
 import { COLORS, STORAGE_KEYS } from '../utils/constants';
 import {
   parentPath,
@@ -42,11 +49,19 @@ type Props = NativeStackScreenProps<RootStackParamList, 'FileExplorer'>;
 
 type ActionSheetEntry = FileEntry | null;
 
+const IMAGE_EXTENSIONS = ['.png', '.jpg', '.jpeg', '.gif', '.bmp', '.webp'];
+
+function isImage(name: string): boolean {
+  const ext = name.toLowerCase().substring(name.lastIndexOf('.'));
+  return IMAGE_EXTENSIONS.includes(ext);
+}
+
 function ExplorerListHeader({
   fs,
   currentPath,
   breadcrumbs,
   error,
+  disconnected,
   onSwitchFs,
   onNavigateTo,
   onNavigateUp,
@@ -55,12 +70,22 @@ function ExplorerListHeader({
   currentPath: string;
   breadcrumbs: Array<{ label: string; path: string }>;
   error: string | null;
+  disconnected: boolean;
   onSwitchFs: (f: FileSystem) => void;
   onNavigateTo: (path: string) => void;
   onNavigateUp: () => void;
 }) {
   return (
     <>
+      {disconnected && (
+        <View style={styles.disconnectBanner}>
+          <Icon name="wifi-off" size={14} color={COLORS.warning} />
+          <Text style={styles.disconnectText}>
+            Not connected to Bruce AP. Connect to BruceNet and refresh.
+          </Text>
+        </View>
+      )}
+
       <View style={styles.fsToggle}>
         {(['SD', 'LittleFS'] as FileSystem[]).map(f => (
           <TouchableOpacity
@@ -104,26 +129,72 @@ function ExplorerListHeader({
 }
 
 export function FileExplorerScreen({ navigation, route }: Props) {
-  const [fs, setFs] = useState<FileSystem>((route.params?.fs) ?? 'SD');
+  const [fs, setFs] = useState<FileSystem>(route.params?.fs ?? 'SD');
   const [currentPath, setCurrentPath] = useState(route.params?.folder ?? '/');
   const [entries, setEntries] = useState<FileEntry[]>([]);
   const [loading, setLoading] = useState(false);
   const [refreshing, setRefreshing] = useState(false);
   const [error, setError] = useState<string | null>(null);
+  const [disconnected, setDisconnected] = useState(false);
   const [selectedEntry, setSelectedEntry] = useState<ActionSheetEntry>(null);
   const [actionSheetVisible, setActionSheetVisible] = useState(false);
   const [fabOpen, setFabOpen] = useState(false);
+  const [uploadProgress, setUploadProgress] = useState<number | null>(null);
+  const [previewUri, setPreviewUri] = useState<string | null>(null);
+  const [previewToken, setPreviewToken] = useState<string | null>(null);
+  const [previewVisible, setPreviewVisible] = useState(false);
+  const [downloadingPath, setDownloadingPath] = useState<string | null>(null);
+
+  // Prompt modal state (replaces Alert.prompt which is iOS-only)
+  const [promptVisible, setPromptVisible] = useState(false);
+  const [promptConfig, setPromptConfig] = useState<{
+    title: string;
+    defaultValue?: string;
+    placeholder?: string;
+    confirmLabel?: string;
+    onConfirm: (value: string) => void;
+  } | null>(null);
+
+  const showPrompt = (config: typeof promptConfig) => {
+    setPromptConfig(config);
+    setPromptVisible(true);
+  };
+  const hidePrompt = () => {
+    setPromptVisible(false);
+    setPromptConfig(null);
+  };
+
+  // Restore last visited path/FS when opened without route params
+  useEffect(() => {
+    if (!route.params?.fs && !route.params?.folder) {
+      AsyncStorage.multiGet([STORAGE_KEYS.lastFs, STORAGE_KEYS.lastPath]).then(pairs => {
+        const storedFs = pairs[0][1] as FileSystem | null;
+        const storedPath = pairs[1][1];
+        if (storedFs) setFs(storedFs);
+        if (storedPath) setCurrentPath(storedPath);
+      });
+    }
+  // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, []);
 
   const loadFiles = useCallback(async (targetFs: FileSystem, path: string) => {
     setError(null);
+    setDisconnected(false);
     setLoading(true);
     try {
       const data = await listFiles(targetFs, path);
       setEntries(data);
       await AsyncStorage.setItem(STORAGE_KEYS.lastFs, targetFs);
       await AsyncStorage.setItem(STORAGE_KEYS.lastPath, path);
-    } catch {
-      setError('Failed to list files. Check connection.');
+    } catch (err: any) {
+      const isNetworkError =
+        err.code === 'ECONNABORTED' ||
+        err.message?.includes('Network Error') ||
+        err.message?.includes('unreachable');
+      if (isNetworkError) {
+        setDisconnected(true);
+      }
+      setError('Failed to list files. Check connection to BruceNet.');
     } finally {
       setLoading(false);
     }
@@ -136,23 +207,19 @@ export function FileExplorerScreen({ navigation, route }: Props) {
   );
 
   useLayoutEffect(() => {
-    navigation.setOptions({ title: currentPath === '/' ? `${fs} /` : currentPath.split('/').pop() });
+    navigation.setOptions({
+      title: currentPath === '/' ? `${fs} /` : currentPath.split('/').pop(),
+    });
   }, [navigation, currentPath, fs]);
 
-  const navigateTo = (path: string) => {
-    setCurrentPath(path);
-  };
-
+  const navigateTo = (path: string) => setCurrentPath(path);
   const navigateUp = () => {
-    if (currentPath === '/') return;
-    navigateTo(parentPath(currentPath));
+    if (currentPath !== '/') navigateTo(parentPath(currentPath));
   };
-
   const switchFs = (newFs: FileSystem) => {
     setFs(newFs);
     setCurrentPath('/');
   };
-
   const onRefresh = async () => {
     setRefreshing(true);
     await loadFiles(fs, currentPath);
@@ -163,7 +230,6 @@ export function FileExplorerScreen({ navigation, route }: Props) {
     setSelectedEntry(entry);
     setActionSheetVisible(true);
   };
-
   const closeActionSheet = () => {
     setActionSheetVisible(false);
     setSelectedEntry(null);
@@ -172,6 +238,8 @@ export function FileExplorerScreen({ navigation, route }: Props) {
   const handleEntryPress = (entry: FileEntry) => {
     if (entry.type === 'folder') {
       navigateTo(entry.path);
+    } else if (isImage(entry.name)) {
+      openActionSheet(entry);
     } else if (isTextFile(entry.name)) {
       navigation.navigate('FileEditor', { fs, filePath: entry.path });
     } else {
@@ -179,15 +247,18 @@ export function FileExplorerScreen({ navigation, route }: Props) {
     }
   };
 
-  // ----- Actions -----
+  // ----- File actions -----
 
   const handleDownload = async (entry: FileEntry) => {
     closeActionSheet();
+    setDownloadingPath(entry.path);
     try {
       const dest = await downloadFile(fs, entry.path);
       ToastAndroid.show(`Saved to ${dest}`, ToastAndroid.LONG);
     } catch (err: any) {
       Alert.alert('Download Failed', err.message ?? 'Unknown error');
+    } finally {
+      setDownloadingPath(null);
     }
   };
 
@@ -208,13 +279,25 @@ export function FileExplorerScreen({ navigation, route }: Props) {
     }
   };
 
+  const handlePreviewImage = async (entry: FileEntry) => {
+    closeActionSheet();
+    const url = `${getBaseUrl()}/file?fs=${fs}&name=${encodeURIComponent(entry.path)}&action=image`;
+    const token = await getSessionToken();
+    setPreviewUri(url);
+    setPreviewToken(token);
+    setPreviewVisible(true);
+  };
+
   const handleRename = (entry: FileEntry) => {
     closeActionSheet();
-    Alert.prompt(
-      'Rename',
-      `New name for "${entry.name}":`,
-      async (newName) => {
-        if (!newName || newName === entry.name) return;
+    showPrompt({
+      title: `Rename "${entry.name}"`,
+      defaultValue: entry.name,
+      placeholder: 'New name',
+      confirmLabel: 'Rename',
+      onConfirm: async (newName) => {
+        hidePrompt();
+        if (newName === entry.name) return;
         try {
           await renameFile(fs, entry.path, newName);
           loadFiles(fs, currentPath);
@@ -222,9 +305,7 @@ export function FileExplorerScreen({ navigation, route }: Props) {
           Alert.alert('Error', 'Failed to rename');
         }
       },
-      'plain-text',
-      entry.name,
-    );
+    });
   };
 
   const handleDelete = (entry: FileEntry) => {
@@ -253,49 +334,121 @@ export function FileExplorerScreen({ navigation, route }: Props) {
 
   // ----- FAB actions -----
 
+  const handleUploadFile = async () => {
+    setFabOpen(false);
+    try {
+      const [result] = await DocumentPicker.pick({
+        type: [DocumentPicker.types.allFiles],
+      });
+      const { uri, name } = result;
+      if (!uri || !name) return;
+      setUploadProgress(0);
+      await uploadFile(fs, currentPath, uri, name, (pct) => setUploadProgress(pct));
+      setUploadProgress(null);
+      ToastAndroid.show('Upload complete', ToastAndroid.SHORT);
+      loadFiles(fs, currentPath);
+    } catch (err: any) {
+      setUploadProgress(null);
+      if (!DocumentPicker.isCancel(err)) {
+        Alert.alert('Upload Failed', err.message ?? 'Unknown error');
+      }
+    }
+  };
+
   const handleCreateFolder = () => {
     setFabOpen(false);
-    Alert.prompt('New Folder', 'Folder name:', async (name) => {
-      if (!name) return;
-      const path = currentPath === '/' ? `/${name}` : `${currentPath}/${name}`;
-      try {
-        await createFolder(fs, path);
-        loadFiles(fs, currentPath);
-      } catch {
-        Alert.alert('Error', 'Failed to create folder');
-      }
+    showPrompt({
+      title: 'New Folder',
+      placeholder: 'Folder name',
+      confirmLabel: 'Create',
+      onConfirm: async (name) => {
+        hidePrompt();
+        const path = currentPath === '/' ? `/${name}` : `${currentPath}/${name}`;
+        try {
+          await createFolder(fs, path);
+          loadFiles(fs, currentPath);
+        } catch {
+          Alert.alert('Error', 'Failed to create folder');
+        }
+      },
     });
   };
 
   const handleCreateFile = () => {
     setFabOpen(false);
-    Alert.prompt('New File', 'File name:', async (name) => {
-      if (!name) return;
-      const path = currentPath === '/' ? `/${name}` : `${currentPath}/${name}`;
-      try {
-        await createFile(fs, path);
-        loadFiles(fs, currentPath);
-      } catch {
-        Alert.alert('Error', 'Failed to create file');
-      }
+    showPrompt({
+      title: 'New File',
+      placeholder: 'File name',
+      confirmLabel: 'Create',
+      onConfirm: async (name) => {
+        hidePrompt();
+        const path = currentPath === '/' ? `/${name}` : `${currentPath}/${name}`;
+        try {
+          await createFile(fs, path);
+          loadFiles(fs, currentPath);
+        } catch {
+          Alert.alert('Error', 'Failed to create file');
+        }
+      },
     });
   };
 
-  // ----- Render helpers -----
+  const handleQuickDelete = (entry: FileEntry) => {
+    Alert.alert('Delete', `Delete "${entry.name}"?\nThis cannot be undone.`, [
+      { text: 'Cancel', style: 'cancel' },
+      {
+        text: 'Delete',
+        style: 'destructive',
+        onPress: async () => {
+          try {
+            await deleteFile(fs, entry.path);
+            loadFiles(fs, currentPath);
+            ToastAndroid.show('Deleted', ToastAndroid.SHORT);
+          } catch {
+            Alert.alert('Error', 'Failed to delete');
+          }
+        },
+      },
+    ]);
+  };
 
   const breadcrumbs = formatBreadcrumbs(currentPath);
 
   const renderItem = ({ item }: { item: FileEntry }) => (
-    <FileItem
+    <FileRowWithDelete
       entry={item}
       onPress={() => handleEntryPress(item)}
       onLongPress={() => openActionSheet(item)}
+      onDelete={() => handleQuickDelete(item)}
     />
   );
 
   return (
     <View style={styles.root}>
-      {loading && !refreshing && (
+      {/* Upload progress overlay */}
+      {uploadProgress !== null && (
+        <View style={styles.uploadOverlay}>
+          <View style={styles.uploadCard}>
+            <Icon name="upload" size={24} color={COLORS.primary} />
+            <Text style={styles.uploadLabel}>Uploading... {uploadProgress}%</Text>
+            <View style={styles.uploadTrack}>
+              <View style={[styles.uploadFill, { width: `${uploadProgress}%` as any }]} />
+            </View>
+          </View>
+        </View>
+      )}
+
+      {/* Download spinner overlay */}
+      {downloadingPath !== null && (
+        <View style={styles.uploadOverlay}>
+          <View style={styles.uploadCard}>
+            <ActivityIndicator color={COLORS.primary} size="large" />
+            <Text style={styles.uploadLabel}>Downloading…</Text>
+          </View>
+        </View>
+      )}
+
+      {loading && !refreshing && !uploadProgress && (
         <View style={styles.loadingOverlay}>
           <ActivityIndicator color={COLORS.primary} size="large" />
         </View>
@@ -311,6 +464,7 @@ export function FileExplorerScreen({ navigation, route }: Props) {
             currentPath={currentPath}
             breadcrumbs={breadcrumbs}
             error={error}
+            disconnected={disconnected}
             onSwitchFs={switchFs}
             onNavigateTo={navigateTo}
             onNavigateUp={navigateUp}
@@ -339,6 +493,10 @@ export function FileExplorerScreen({ navigation, route }: Props) {
       <View style={styles.fab}>
         {fabOpen && (
           <View style={styles.fabMenu}>
+            <TouchableOpacity style={styles.fabItem} onPress={handleUploadFile}>
+              <Icon name="upload-outline" size={20} color={COLORS.primary} />
+              <Text style={styles.fabItemText}>Upload File</Text>
+            </TouchableOpacity>
             <TouchableOpacity style={styles.fabItem} onPress={handleCreateFolder}>
               <Icon name="folder-plus-outline" size={20} color={COLORS.primary} />
               <Text style={styles.fabItemText}>New Folder</Text>
@@ -377,6 +535,9 @@ export function FileExplorerScreen({ navigation, route }: Props) {
               <>
                 <ActionRow icon="download-outline" label="Download" onPress={() => selectedEntry && handleDownload(selectedEntry)} />
                 <ActionRow icon="pencil-outline" label="Edit" onPress={() => selectedEntry && handleEdit(selectedEntry)} />
+                {selectedEntry && isImage(selectedEntry.name) && (
+                  <ActionRow icon="image-outline" label="Preview Image" onPress={() => selectedEntry && handlePreviewImage(selectedEntry)} />
+                )}
                 {selectedEntry && isExecutable(selectedEntry.name) && (
                   <ActionRow icon="play-outline" label="Run" accent onPress={() => selectedEntry && handleRun(selectedEntry)} />
                 )}
@@ -391,6 +552,108 @@ export function FileExplorerScreen({ navigation, route }: Props) {
           </View>
         </TouchableOpacity>
       </Modal>
+
+      {/* Image Preview Modal */}
+      <Modal
+        visible={previewVisible}
+        transparent
+        animationType="fade"
+        onRequestClose={() => setPreviewVisible(false)}>
+        <TouchableOpacity
+          style={styles.previewOverlay}
+          activeOpacity={1}
+          onPress={() => setPreviewVisible(false)}>
+          {previewUri && (
+            <Image
+              source={{
+                uri: previewUri,
+                headers: previewToken
+                  ? { Cookie: `BRUCESESSION=${previewToken}` }
+                  : undefined,
+              }}
+              style={styles.previewImage}
+              resizeMode="contain"
+            />
+          )}
+          <Text style={styles.previewHint}>Tap to close</Text>
+        </TouchableOpacity>
+      </Modal>
+
+      {/* Cross-platform prompt modal (Alert.prompt is iOS-only) */}
+      {promptConfig && (
+        <PromptModal
+          visible={promptVisible}
+          title={promptConfig.title}
+          defaultValue={promptConfig.defaultValue}
+          placeholder={promptConfig.placeholder}
+          confirmLabel={promptConfig.confirmLabel}
+          onConfirm={promptConfig.onConfirm}
+          onCancel={hidePrompt}
+        />
+      )}
+    </View>
+  );
+}
+
+// ----- File row with inline delete button -----
+// Replacing the old SwipeableFileItem whose long-press-to-swipe gesture
+// conflicted with the FileItem's own long-press (action sheet).
+// Now: row long-press → action sheet (single responsibility).
+// Quick delete is accessible via the action sheet "Delete" row, or via the
+// trash icon that slides in when the row is swiped using Animated.
+function FileRowWithDelete({
+  entry,
+  onPress,
+  onLongPress,
+  onDelete,
+}: {
+  entry: FileEntry;
+  onPress: () => void;
+  onLongPress: () => void;
+  onDelete: () => void;
+}) {
+  const translateX = React.useRef(new Animated.Value(0)).current;
+  const [revealed, setRevealed] = React.useState(false);
+
+  const reveal = () => {
+    Animated.spring(translateX, {
+      toValue: revealed ? 0 : -72,
+      useNativeDriver: true,
+      bounciness: 4,
+    }).start();
+    setRevealed(r => !r);
+  };
+
+  // Close the revealed state when the user taps elsewhere (via onPress)
+  const handlePress = () => {
+    if (revealed) {
+      reveal();
+    } else {
+      onPress();
+    }
+  };
+
+  return (
+    <View style={styles.swipeRow}>
+      {/* Delete button sits behind, revealed by the slide */}
+      <View style={styles.swipeAction}>
+        <TouchableOpacity
+          style={styles.swipeDeleteBtn}
+          onPress={() => { reveal(); onDelete(); }}>
+          <Icon name="delete-outline" size={20} color="#fff" />
+        </TouchableOpacity>
+      </View>
+
+      {/* Slide handle + file row */}
+      <Animated.View style={[styles.swipeContent, { transform: [{ translateX }] }]}>
+        {/* Swipe handle — separate from the file row so long-press is unambiguous */}
+        <TouchableOpacity style={styles.swipeHandle} onPress={reveal} activeOpacity={0.6}>
+          <Icon name="drag-horizontal-variant" size={16} color={COLORS.border} />
+        </TouchableOpacity>
+        <View style={{ flex: 1 }}>
+          <FileItem entry={entry} onPress={handlePress} onLongPress={onLongPress} />
+        </View>
+      </Animated.View>
     </View>
   );
 }
@@ -436,6 +699,22 @@ const styles = StyleSheet.create({
     alignItems: 'center',
     justifyContent: 'center',
     zIndex: 10,
+  },
+  disconnectBanner: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    backgroundColor: 'rgba(255,170,0,0.1)',
+    borderBottomWidth: 1,
+    borderBottomColor: COLORS.warning,
+    paddingHorizontal: 14,
+    paddingVertical: 10,
+    gap: 8,
+  },
+  disconnectText: {
+    color: COLORS.warning,
+    fontSize: 12,
+    flex: 1,
+    lineHeight: 16,
   },
   fsToggle: {
     flexDirection: 'row',
@@ -520,6 +799,42 @@ const styles = StyleSheet.create({
     marginTop: 12,
     fontSize: 15,
   },
+  // Upload / download overlays
+  uploadOverlay: {
+    ...StyleSheet.absoluteFillObject,
+    backgroundColor: 'rgba(10,10,10,0.75)',
+    alignItems: 'center',
+    justifyContent: 'center',
+    zIndex: 20,
+  },
+  uploadCard: {
+    backgroundColor: COLORS.surface,
+    borderRadius: 16,
+    padding: 28,
+    alignItems: 'center',
+    minWidth: 200,
+    borderWidth: 1,
+    borderColor: COLORS.primaryDim,
+  },
+  uploadLabel: {
+    color: COLORS.text,
+    marginTop: 12,
+    marginBottom: 12,
+    fontSize: 14,
+  },
+  uploadTrack: {
+    width: 160,
+    height: 6,
+    backgroundColor: COLORS.border,
+    borderRadius: 3,
+    overflow: 'hidden',
+  },
+  uploadFill: {
+    height: '100%',
+    backgroundColor: COLORS.primary,
+    borderRadius: 3,
+  },
+  // FAB
   fab: {
     position: 'absolute',
     bottom: 24,
@@ -560,6 +875,7 @@ const styles = StyleSheet.create({
     marginLeft: 10,
     fontSize: 14,
   },
+  // Action sheet
   modalOverlay: {
     flex: 1,
     backgroundColor: COLORS.overlay,
@@ -607,12 +923,8 @@ const styles = StyleSheet.create({
     fontSize: 16,
     marginLeft: 14,
   },
-  dangerText: {
-    color: COLORS.error,
-  },
-  accentText: {
-    color: COLORS.primary,
-  },
+  dangerText: { color: COLORS.error },
+  accentText: { color: COLORS.primary },
   cancelBtn: {
     marginTop: 12,
     backgroundColor: COLORS.background,
@@ -626,5 +938,56 @@ const styles = StyleSheet.create({
     color: COLORS.text,
     fontSize: 15,
     fontWeight: '600',
+  },
+  // Image preview
+  previewOverlay: {
+    flex: 1,
+    backgroundColor: 'rgba(0,0,0,0.92)',
+    alignItems: 'center',
+    justifyContent: 'center',
+  },
+  previewImage: {
+    width: '90%',
+    height: '80%',
+  },
+  previewHint: {
+    color: COLORS.textMuted,
+    marginTop: 16,
+    fontSize: 12,
+  },
+  // Swipe row
+  swipeRow: {
+    position: 'relative',
+    overflow: 'hidden',
+  },
+  swipeAction: {
+    position: 'absolute',
+    right: 0,
+    top: 0,
+    bottom: 0,
+    width: 72,
+    backgroundColor: COLORS.error,
+    alignItems: 'center',
+    justifyContent: 'center',
+  },
+  swipeDeleteBtn: {
+    flex: 1,
+    alignItems: 'center',
+    justifyContent: 'center',
+    width: 72,
+  },
+  swipeContent: {
+    flexDirection: 'row',
+    alignItems: 'stretch',
+    backgroundColor: COLORS.background,
+  },
+  swipeHandle: {
+    width: 24,
+    alignItems: 'center',
+    justifyContent: 'center',
+    paddingHorizontal: 4,
+    backgroundColor: COLORS.surface,
+    borderRightWidth: 1,
+    borderRightColor: COLORS.border,
   },
 });

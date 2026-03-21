@@ -1,7 +1,7 @@
 import React, { useEffect, useRef } from 'react';
 import { NavigationContainer, NavigationContainerRef } from '@react-navigation/native';
 import { createNativeStackNavigator } from '@react-navigation/native-stack';
-import { ActivityIndicator, View, StyleSheet } from 'react-native';
+import { ActivityIndicator, View, StyleSheet, ToastAndroid } from 'react-native';
 
 import { RootStackParamList } from '../types';
 import { useAuth } from '../hooks/useAuth';
@@ -14,6 +14,7 @@ import { FileExplorerScreen } from '../screens/FileExplorerScreen';
 import { FileEditorScreen } from '../screens/FileEditorScreen';
 import { TerminalScreen } from '../screens/TerminalScreen';
 import { SettingsScreen } from '../screens/SettingsScreen';
+import { NavigatorScreen } from '../screens/NavigatorScreen';
 
 const Stack = createNativeStackNavigator<RootStackParamList>();
 
@@ -33,6 +34,7 @@ export function AppNavigator() {
   useEffect(() => {
     setNavigateToLogin(() => {
       if (navRef.current) {
+        ToastAndroid.show('Session expired. Please log in again.', ToastAndroid.LONG);
         navRef.current.reset({ index: 0, routes: [{ name: 'Login' }] });
         markUnauthenticated();
       }
@@ -86,6 +88,11 @@ export function AppNavigator() {
           name="Settings"
           component={SettingsScreen}
           options={{ title: 'Settings' }}
+        />
+        <Stack.Screen
+          name="Navigator"
+          component={NavigatorScreen}
+          options={{ title: 'Navigator' }}
         />
       </Stack.Navigator>
     </NavigationContainer>

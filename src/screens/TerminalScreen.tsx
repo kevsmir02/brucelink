@@ -21,7 +21,7 @@ import { COLORS } from '../utils/constants';
 type Props = NativeStackScreenProps<RootStackParamList, 'Terminal'>;
 
 const QUICK_COMMANDS = [
-  'info', 'help', 'uptime', 'settings', 'loader list',
+  'info', 'help', 'uptime', 'free', 'settings', 'loader list',
   'wifi on', 'wifi off', 'power reboot', 'power sleep', 'power off',
 ];
 

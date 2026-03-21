@@ -3,7 +3,17 @@ import AsyncStorage from '@react-native-async-storage/async-storage';
 import RNFS from 'react-native-fs';
 import { FileEntry, FileSystem, SystemInfo } from '../types';
 import { parseFileList } from '../utils/fileHelpers';
-import { DEFAULT_BASE_URL, STORAGE_KEYS } from '../utils/constants';
+import { DEFAULT_BASE_URL, DEV_BYPASS_SESSION_TOKEN, STORAGE_KEYS } from '../utils/constants';
+import {
+  MOCK_SYSTEM_INFO,
+  mockGetFileContent,
+  mockListFiles,
+  mockSendCommand,
+} from './mockDevice';
+import {
+  getDevNavigatorPreviewBase64,
+  resetDevNavigatorPreview,
+} from '../utils/devNavigatorPreview';
 
 // Navigation callback — set by AppNavigator after mount so the interceptor
 // can redirect to Login on 401 without importing navigation directly.
@@ -27,9 +37,37 @@ export function setBaseUrl(url: string) {
   apiClient.defaults.baseURL = _baseUrl;
 }
 
+export async function getSessionToken(): Promise<string | null> {
+  return AsyncStorage.getItem(STORAGE_KEYS.session);
+}
+
+async function inDevBypassMode(): Promise<boolean> {
+  const t = await AsyncStorage.getItem(STORAGE_KEYS.session);
+  return t === DEV_BYPASS_SESSION_TOKEN;
+}
+
+/**
+ * __DEV__ only — enter app with local mocks (no device).
+ */
+export async function enableDevBypass(baseUrlInput?: string): Promise<void> {
+  if (!__DEV__) {
+    return;
+  }
+  const raw = baseUrlInput?.trim() || DEFAULT_BASE_URL;
+  const url = raw.startsWith('http') ? raw.replace(/\/$/, '') : `http://${raw.replace(/\/$/, '')}`;
+  setBaseUrl(url);
+  await AsyncStorage.setItem(STORAGE_KEYS.session, DEV_BYPASS_SESSION_TOKEN);
+  await AsyncStorage.setItem(STORAGE_KEYS.baseUrl, url);
+  resetDevNavigatorPreview();
+}
+
+export async function isDevBypassActive(): Promise<boolean> {
+  return inDevBypassMode();
+}
+
 export const apiClient: AxiosInstance = axios.create({
   baseURL: _baseUrl,
-  timeout: 8000,
+  timeout: 5000,
   withCredentials: false,
 });
 
@@ -54,7 +92,11 @@ apiClient.interceptors.response.use(
   response => response,
   error => {
     if (error.response?.status === 401 && _navigateToLogin) {
-      _navigateToLogin();
+      AsyncStorage.getItem(STORAGE_KEYS.session).then(token => {
+        if (token !== DEV_BYPASS_SESSION_TOKEN) {
+          _navigateToLogin?.();
+        }
+      });
     }
     return Promise.reject(error);
   },
@@ -110,9 +152,9 @@ export async function login(
       return true;
     }
 
-    // If we got a 200/302 without a failed location, treat as success
-    // (older firmware may not include Set-Cookie on every auth flow)
-    return response.status >= 200 && response.status < 400;
+    // Server redirected to success path but sent no Set-Cookie header.
+    // Without a token every subsequent request will 401, so treat as failure.
+    return false;
   } catch (err: any) {
     // A network error means the device is unreachable
     if (err.code === 'ECONNABORTED' || err.message?.includes('Network Error')) {
@@ -123,6 +165,11 @@ export async function login(
 }
 
 export async function logout(): Promise<void> {
+  if (await inDevBypassMode()) {
+    await AsyncStorage.removeItem(STORAGE_KEYS.session);
+    return;
+  }
+
   try {
     await apiClient.get('/logout', {
       maxRedirects: 0,
@@ -147,6 +194,9 @@ export async function restoreSession(): Promise<{ token: string | null; baseUrl:
 // System info
 // ---------------------------------------------------------------------------
 export async function getSystemInfo(): Promise<SystemInfo> {
+  if (await inDevBypassMode()) {
+    return { ...MOCK_SYSTEM_INFO };
+  }
   const { data } = await apiClient.get<SystemInfo>('/systeminfo');
   return data;
 }
@@ -155,6 +205,9 @@ export async function getSystemInfo(): Promise<SystemInfo> {
 // File system
 // ---------------------------------------------------------------------------
 export async function listFiles(fs: FileSystem, folder: string): Promise<FileEntry[]> {
+  if (await inDevBypassMode()) {
+    return mockListFiles(fs, folder);
+  }
   const { data } = await apiClient.get<string>('/listfiles', {
     params: { fs, folder },
     responseType: 'text',
@@ -163,6 +216,9 @@ export async function listFiles(fs: FileSystem, folder: string): Promise<FileEnt
 }
 
 export async function getFileContent(fs: FileSystem, filePath: string): Promise<string> {
+  if (await inDevBypassMode()) {
+    return mockGetFileContent(filePath);
+  }
   const { data } = await apiClient.get<string>('/file', {
     params: { fs, name: filePath, action: 'edit' },
     responseType: 'text',
@@ -175,6 +231,9 @@ export async function saveFileContent(
   filePath: string,
   content: string,
 ): Promise<string> {
+  if (await inDevBypassMode()) {
+    return `File edited: ${filePath} (dev preview — not persisted)`;
+  }
   const form = new FormData();
   form.append('name', filePath);
   form.append('content', content);
@@ -186,6 +245,16 @@ export async function saveFileContent(
 }
 
 export async function downloadFile(fs: FileSystem, filePath: string): Promise<string> {
+  if (await inDevBypassMode()) {
+    const filename = (filePath.split('/').pop() ?? 'download').replace(/[^\w.-]/g, '_');
+    const destPath = `${RNFS.DownloadDirectoryPath}/brucelink-dev-${filename}.txt`;
+    await RNFS.writeFile(
+      destPath,
+      `BruceLink dev preview download\nPath: ${filePath}\nFS: ${fs}\n`,
+      'utf8',
+    );
+    return destPath;
+  }
   const token = await AsyncStorage.getItem(STORAGE_KEYS.session);
   const filename = filePath.split('/').pop() ?? 'download';
   const destPath = `${RNFS.DownloadDirectoryPath}/${filename}`;
@@ -211,6 +280,10 @@ export async function uploadFile(
   fileName: string,
   onProgress?: (pct: number) => void,
 ): Promise<void> {
+  if (await inDevBypassMode()) {
+    onProgress?.(100);
+    return;
+  }
   const form = new FormData();
   form.append('file', {
     uri: fileUri,
@@ -231,6 +304,9 @@ export async function uploadFile(
 }
 
 export async function deleteFile(fs: FileSystem, filePath: string): Promise<string> {
+  if (await inDevBypassMode()) {
+    return `Deleted : ${filePath} (dev preview)`;
+  }
   const { data } = await apiClient.get<string>('/file', {
     params: { fs, name: filePath, action: 'delete' },
     responseType: 'text',
@@ -239,6 +315,9 @@ export async function deleteFile(fs: FileSystem, filePath: string): Promise<stri
 }
 
 export async function createFolder(fs: FileSystem, path: string): Promise<string> {
+  if (await inDevBypassMode()) {
+    return `Created new folder: ${path} (dev preview)`;
+  }
   const { data } = await apiClient.get<string>('/file', {
     params: { fs, name: path, action: 'create' },
     responseType: 'text',
@@ -247,6 +326,9 @@ export async function createFolder(fs: FileSystem, path: string): Promise<string
 }
 
 export async function createFile(fs: FileSystem, path: string): Promise<string> {
+  if (await inDevBypassMode()) {
+    return `Created new file: ${path} (dev preview)`;
+  }
   const { data } = await apiClient.get<string>('/file', {
     params: { fs, name: path, action: 'createfile' },
     responseType: 'text',
@@ -259,6 +341,9 @@ export async function renameFile(
   filePath: string,
   newName: string,
 ): Promise<string> {
+  if (await inDevBypassMode()) {
+    return `${filePath} → ${newName} (dev preview)`;
+  }
   const form = new FormData();
   form.append('fs', fs);
   form.append('filePath', filePath);
@@ -274,6 +359,9 @@ export async function renameFile(
 // Command interface
 // ---------------------------------------------------------------------------
 export async function sendCommand(command: string): Promise<string> {
+  if (await inDevBypassMode()) {
+    return mockSendCommand(command);
+  }
   const form = new FormData();
   form.append('cmnd', command);
   const { data } = await apiClient.post<string>('/cm', form, {
@@ -288,12 +376,45 @@ export async function sendCommand(command: string): Promise<string> {
 // Device management
 // ---------------------------------------------------------------------------
 export async function rebootDevice(): Promise<void> {
+  if (await inDevBypassMode()) {
+    return;
+  }
   await apiClient.get('/reboot', {
     validateStatus: (s) => s < 500,
   });
 }
 
+/**
+ * Fetches the TFT screen binary log from the device and returns it as a
+ * base64 string so it can be passed directly to the WebView via postMessage.
+ * In dev bypass, returns a synthetic TFT preview (same binary format as /getscreen).
+ * Returns null on network failure when a real session is active.
+ */
+export async function getScreen(): Promise<string | null> {
+  if (await inDevBypassMode()) {
+    return getDevNavigatorPreviewBase64();
+  }
+  const token = await AsyncStorage.getItem(STORAGE_KEYS.session);
+  const tempPath = `${RNFS.CachesDirectoryPath}/bruce_screen.bin`;
+  try {
+    const result = await RNFS.downloadFile({
+      fromUrl: `${_baseUrl}/getscreen`,
+      toFile: tempPath,
+      headers: token ? { Cookie: `BRUCESESSION=${token}` } : {},
+      background: false,
+      cacheable: false,
+    }).promise;
+    if (result.statusCode !== 200) { return null; }
+    return await RNFS.readFile(tempPath, 'base64');
+  } catch {
+    return null;
+  }
+}
+
 export async function updateCredentials(username: string, password: string): Promise<string> {
+  if (await inDevBypassMode()) {
+    return `User: ${username} (dev preview — not applied)`;
+  }
   const { data } = await apiClient.get<string>('/wifi', {
     params: { usr: username, pwd: password },
     responseType: 'text',

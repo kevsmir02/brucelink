@@ -33,4 +33,5 @@ export type RootStackParamList = {
   FileEditor: { fs: FileSystem; filePath: string };
   Terminal: undefined;
   Settings: undefined;
+  Navigator: undefined;
 };
