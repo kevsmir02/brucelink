@@ -10,10 +10,6 @@ import {
   mockListFiles,
   mockSendCommand,
 } from './mockDevice';
-import {
-  getDevNavigatorPreviewBase64,
-  resetDevNavigatorPreview,
-} from '../utils/devNavigatorPreview';
 
 // Navigation callback — set by AppNavigator after mount so the interceptor
 // can redirect to Login on 401 without importing navigation directly.
@@ -58,7 +54,6 @@ export async function enableDevBypass(baseUrlInput?: string): Promise<void> {
   setBaseUrl(url);
   await AsyncStorage.setItem(STORAGE_KEYS.session, DEV_BYPASS_SESSION_TOKEN);
   await AsyncStorage.setItem(STORAGE_KEYS.baseUrl, url);
-  resetDevNavigatorPreview();
 }
 
 export async function isDevBypassActive(): Promise<boolean> {
@@ -387,12 +382,12 @@ export async function rebootDevice(): Promise<void> {
 /**
  * Fetches the TFT screen binary log from the device and returns it as a
  * base64 string so it can be passed directly to the WebView via postMessage.
- * In dev bypass, returns a synthetic TFT preview (same binary format as /getscreen).
+ * In dev bypass, returns null (no device screen to mirror).
  * Returns null on network failure when a real session is active.
  */
 export async function getScreen(): Promise<string | null> {
   if (await inDevBypassMode()) {
-    return getDevNavigatorPreviewBase64();
+    return null;
   }
   const token = await AsyncStorage.getItem(STORAGE_KEYS.session);
   const tempPath = `${RNFS.CachesDirectoryPath}/bruce_screen.bin`;

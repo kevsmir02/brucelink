@@ -19,7 +19,12 @@ import { NativeStackScreenProps } from '@react-navigation/native-stack';
 import { useFocusEffect } from '@react-navigation/native';
 import AsyncStorage from '@react-native-async-storage/async-storage';
 import Icon from 'react-native-vector-icons/MaterialCommunityIcons';
-import DocumentPicker from 'react-native-document-picker';
+import {
+  pick as pickDocument,
+  types as documentTypes,
+  errorCodes as documentPickerErrorCodes,
+  isErrorWithCode as isDocumentPickerErrorWithCode,
+} from '@react-native-documents/picker';
 
 import { RootStackParamList, FileEntry, FileSystem } from '../types';
 import {
@@ -337,21 +342,30 @@ export function FileExplorerScreen({ navigation, route }: Props) {
   const handleUploadFile = async () => {
     setFabOpen(false);
     try {
-      const [result] = await DocumentPicker.pick({
-        type: [DocumentPicker.types.allFiles],
+      const [result] = await pickDocument({
+        type: [documentTypes.allFiles],
       });
-      const { uri, name } = result;
-      if (!uri || !name) return;
+      const { uri } = result;
+      if (!uri) return;
+      const fromUri =
+        decodeURIComponent((uri.split('/').pop() ?? '').split('?')[0]).replace(/\+/g, ' ') ||
+        'upload.bin';
+      const name = result.name ?? fromUri;
       setUploadProgress(0);
       await uploadFile(fs, currentPath, uri, name, (pct) => setUploadProgress(pct));
       setUploadProgress(null);
       ToastAndroid.show('Upload complete', ToastAndroid.SHORT);
       loadFiles(fs, currentPath);
-    } catch (err: any) {
+    } catch (err: unknown) {
       setUploadProgress(null);
-      if (!DocumentPicker.isCancel(err)) {
-        Alert.alert('Upload Failed', err.message ?? 'Unknown error');
+      if (
+        isDocumentPickerErrorWithCode(err) &&
+        err.code === documentPickerErrorCodes.OPERATION_CANCELED
+      ) {
+        return;
       }
+      const message = err instanceof Error ? err.message : 'Unknown error';
+      Alert.alert('Upload Failed', message);
     }
   };
 

@@ -9,6 +9,7 @@ A React Native Android app for controlling the [Bruce ESP32 penetration testing 
 - **File Explorer** — browse SD and LittleFS filesystems, upload/download/rename/delete files, create folders/files, one-tap execution of `.ir`, `.sub`, `.js`, `.txt`, `.mp3` payloads
 - **File Editor** — full-screen monospace editor with save and run buttons, unsaved-change guard
 - **Terminal** — fire-and-forget CLI interface (`/cm` endpoint), quick-command chips, command history
+- **Navigator** — mirrors the device TFT via `/getscreen` in an embedded WebView canvas + D-pad (`nav` commands)
 - **Settings** — change WebUI credentials, reboot device, logout
 
 ## Tech Stack
@@ -22,6 +23,7 @@ A React Native Android app for controlling the [Bruce ESP32 penetration testing 
 | `react-native-fs` | Streaming file downloads to Android Downloads folder |
 | `@react-navigation/native-stack` | Screen navigation |
 | `react-native-vector-icons` (MaterialCommunityIcons) | UI icons |
+| `react-native-webview` | Navigator screen TFT canvas (native module — requires a full Android rebuild after install) |
 
 ## Prerequisites
 
@@ -77,6 +79,31 @@ All communication targets the Bruce REST API at `http://192.168.4.1` (configurab
 | `POST /cm` | Send CLI command (fire-and-forget) |
 | `GET /wifi` | Update WebUI credentials |
 | `GET /reboot` | Reboot device |
+| `GET /getscreen` | Raw TFT draw log (Navigator preview) |
+
+## Troubleshooting
+
+### `RNCWebViewModule could not be found` (Navigator screen)
+
+`react-native-webview` adds **native** code. After `npm install`, you must **reinstall the Android app** (not only reload JS in Metro):
+
+```bash
+cd android && ./gradlew clean && cd .. && npx react-native run-android
+```
+
+Until you do, the Navigator tab shows in-app instructions instead of crashing.
+
+### `./gradlew clean` fails: `GLOB mismatch` / `react-native-document-picker` / missing `codegen/jni`
+
+After removing or swapping a native module, **old CMake/Ninja state** under `android/app/.cxx` can still reference deleted paths (e.g. `node_modules/react-native-document-picker/...`). `clean` then tries to reconfigure CMake and errors.
+
+**Fix:** delete native/build outputs, then build (skip `clean` if it keeps failing):
+
+```bash
+rm -rf android/app/.cxx android/app/build android/build
+cd android && ./gradlew assembleDebug
+# or: cd .. && npx react-native run-android
+```
 
 ## Project Structure
 
@@ -91,6 +118,8 @@ src/
 │   ├── FileExplorerScreen.tsx
 │   ├── FileEditorScreen.tsx
 │   ├── TerminalScreen.tsx
+│   ├── NavigatorScreen.tsx   # Loads WebView only if native module is present
+│   ├── NavigatorWebCanvas.tsx
 │   └── SettingsScreen.tsx
 ├── components/
 │   ├── FileItem.tsx

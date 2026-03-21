@@ -3,7 +3,6 @@
  */
 import { FileEntry, FileSystem, SystemInfo } from '../types';
 import { parseFileList } from '../utils/fileHelpers';
-import { applyDevNavigatorNavCommand } from '../utils/devNavigatorPreview';
 
 export const MOCK_SYSTEM_INFO: SystemInfo = {
   BRUCE_VERSION: '1.5.0-dev',
@@ -47,9 +46,5 @@ export function mockGetFileContent(filePath: string): string {
 
 export function mockSendCommand(command: string): string {
   const trimmed = command.trim();
-  if (trimmed.toLowerCase().startsWith('nav ')) {
-    applyDevNavigatorNavCommand(trimmed);
-    return `command ${trimmed} success (dev preview)`;
-  }
   return `command "${trimmed}" queued (dev preview)`;
 }
