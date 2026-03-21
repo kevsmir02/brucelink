@@ -1,14 +1,14 @@
-import axios, { AxiosInstance, InternalAxiosRequestConfig } from 'axios';
 import AsyncStorage from '@react-native-async-storage/async-storage';
+import axios, { AxiosInstance, InternalAxiosRequestConfig } from 'axios';
 import RNFS from 'react-native-fs';
 import { FileEntry, FileSystem, SystemInfo } from '../types';
-import { parseFileList } from '../utils/fileHelpers';
 import { DEFAULT_BASE_URL, DEV_BYPASS_SESSION_TOKEN, STORAGE_KEYS } from '../utils/constants';
+import { parseFileList } from '../utils/fileHelpers';
 import {
-  MOCK_SYSTEM_INFO,
-  mockGetFileContent,
-  mockListFiles,
-  mockSendCommand,
+    MOCK_SYSTEM_INFO,
+    mockGetFileContent,
+    mockListFiles,
+    mockSendCommand,
 } from './mockDevice';
 
 // Navigation callback — set by AppNavigator after mount so the interceptor
@@ -118,8 +118,9 @@ export async function login(
       validateStatus: (status) => status >= 200 && status < 400,
     });
 
-    // Success: 302 to "/" — extract Set-Cookie header
+    // Success path: extract BRUCESESSION from common header/body shapes.
     const setCookieHeader = response.headers['set-cookie'];
+    const xBruceSessionHeader = response.headers['x-bruce-session'];
     let sessionToken: string | null = null;
 
     if (setCookieHeader) {
@@ -132,6 +133,21 @@ export async function login(
           sessionToken = match[1];
           break;
         }
+      }
+    }
+
+    if (!sessionToken && xBruceSessionHeader) {
+      if (Array.isArray(xBruceSessionHeader)) {
+        sessionToken = xBruceSessionHeader[0] ?? null;
+      } else {
+        sessionToken = String(xBruceSessionHeader);
+      }
+    }
+
+    if (!sessionToken && response.data && typeof response.data === 'object') {
+      const maybeSession = (response.data as any).session ?? (response.data as any).token;
+      if (typeof maybeSession === 'string' && maybeSession.length > 0) {
+        sessionToken = maybeSession;
       }
     }
 

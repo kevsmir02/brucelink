@@ -50,6 +50,46 @@ npm start
 npm run android
 ```
 
+## Build APK (Debug and Release)
+
+### Debug APK
+
+Build a local debug APK:
+
+```bash
+cd android
+./gradlew assembleDebug
+```
+
+Output:
+
+```text
+android/app/build/outputs/apk/debug/app-debug.apk
+```
+
+### Release APK
+
+Build a release APK:
+
+```bash
+cd android
+./gradlew assembleRelease
+```
+
+Output:
+
+```text
+android/app/build/outputs/apk/release/app-release.apk
+```
+
+Install it manually with ADB (optional):
+
+```bash
+adb install -r android/app/build/outputs/apk/release/app-release.apk
+```
+
+> Note: the current Gradle config signs release builds with the debug keystore. For Play Store or production distribution, configure your own release keystore first.
+
 ## Connecting to a Bruce Device
 
 1. On your Android device, connect to the **BruceNet** WiFi access point (default password: `brucenet`)
@@ -58,6 +98,25 @@ npm run android
 4. Tap **Connect**
 
 > The app communicates exclusively over HTTP on the local AP — no internet connection is used or required.
+
+## How to Use the App
+
+1. Connect your phone to the Bruce device AP (default SSID: BruceNet).
+2. Open BruceLink and log in with device IP, username, and password.
+3. On **Dashboard**, verify firmware and storage status.
+4. Open **File Explorer** to browse SD/LittleFS, then upload/download/create/rename/delete files and folders.
+5. Tap a file to open **File Editor**, edit content, and save or run supported payload files.
+6. Use **Terminal** to send direct CLI commands with quick chips and command history.
+7. Use **Navigator** to mirror the TFT screen and send D-pad navigation commands.
+8. In **Settings**, update WebUI credentials, reboot the device, or logout.
+
+### Typical Workflow
+
+1. Login.
+2. Check health on Dashboard.
+3. Transfer or edit scripts in File Explorer/File Editor.
+4. Trigger execution (run file or send command from Terminal).
+5. Monitor interaction in Navigator.
 
 ### Skip login (development builds only)
 
