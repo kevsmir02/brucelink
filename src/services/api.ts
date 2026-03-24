@@ -1,5 +1,7 @@
 import AsyncStorage from '@react-native-async-storage/async-storage';
 import axios, { AxiosInstance, InternalAxiosRequestConfig } from 'axios';
+import CookieManager from '@react-native-cookies/cookies';
+import { Platform } from 'react-native';
 import RNFS from 'react-native-fs';
 import { FileEntry, FileSystem, SystemInfo } from '../types';
 import { DEFAULT_BASE_URL, DEV_BYPASS_SESSION_TOKEN, STORAGE_KEYS } from '../utils/constants';
@@ -100,6 +102,107 @@ apiClient.interceptors.response.use(
 // ---------------------------------------------------------------------------
 // Auth helpers
 // ---------------------------------------------------------------------------
+
+/** AxiosHeaders vs plain object — RN/XHR may expose Set-Cookie oddly. */
+function getResponseHeader(response: { headers: unknown }, name: string): string | string[] | undefined {
+  const headers = response.headers as Record<string, unknown> & { get?: (n: string) => unknown };
+  const lower = name.toLowerCase();
+  if (typeof headers.get === 'function') {
+    const v = headers.get(name) ?? headers.get(lower);
+    if (v != null) {
+      return v as string | string[];
+    }
+  }
+  const direct = headers[lower] ?? headers[name];
+  if (direct != null) {
+    return direct as string | string[];
+  }
+  return undefined;
+}
+
+function extractBruceSessionToken(headers: unknown): string | null {
+  const raw = getResponseHeader({ headers }, 'set-cookie');
+  if (raw == null) {
+    return null;
+  }
+  const lines = Array.isArray(raw) ? raw : [raw];
+  for (const line of lines) {
+    const m = String(line).match(/BRUCESESSION=([^;,\s]+)/);
+    if (m) {
+      return m[1];
+    }
+  }
+  return null;
+}
+
+/**
+ * React Native often strips Set-Cookie from axios `response.headers`, but the
+ * underlying XHR may still list it in getAllResponseHeaders() (browser WebView does not).
+ */
+function extractBruceSessionFromXHR(request: unknown): string | null {
+  if (request == null || typeof request !== 'object') {
+    return null;
+  }
+  const xhr = request as {
+    getResponseHeader?: (n: string) => string | null;
+    getAllResponseHeaders?: () => string;
+  };
+  if (typeof xhr.getResponseHeader === 'function') {
+    for (const name of ['Set-Cookie', 'set-cookie']) {
+      const v = xhr.getResponseHeader(name);
+      if (v) {
+        const m = v.match(/BRUCESESSION=([^;,\s]+)/);
+        if (m) {
+          return m[1];
+        }
+      }
+    }
+  }
+  if (typeof xhr.getAllResponseHeaders === 'function') {
+    const block = xhr.getAllResponseHeaders();
+    if (block) {
+      for (const line of block.split(/[\r\n]+/)) {
+        const m = line.match(/^set-cookie:\s*(.+)$/i);
+        if (m) {
+          const inner = m[1].match(/BRUCESESSION=([^;,\s]+)/);
+          if (inner) {
+            return inner[1];
+          }
+        }
+      }
+    }
+  }
+  return null;
+}
+
+function parseSessionFromSetCookieValue(value: string): string | null {
+  const m = String(value).match(/BRUCESESSION=([^;,\s]+)/);
+  return m ? m[1] : null;
+}
+
+/** RN fetch/Headers may expose Set-Cookie here (undocumented but works on some builds). */
+function extractSessionFromFetchHeaders(res: Response): string | null {
+  const h = res.headers as unknown as { getSetCookie?: () => string[] };
+  if (typeof h.getSetCookie === 'function') {
+    for (const line of h.getSetCookie()) {
+      const t = parseSessionFromSetCookieValue(line);
+      if (t) {
+        return t;
+      }
+    }
+  }
+  let found: string | null = null;
+  res.headers.forEach((value, key) => {
+    if (key.toLowerCase() === 'set-cookie' && !found) {
+      const t = parseSessionFromSetCookieValue(value);
+      if (t) {
+        found = t;
+      }
+    }
+  });
+  return found;
+}
+
 export async function login(
   baseUrl: string,
   username: string,
@@ -107,64 +210,73 @@ export async function login(
 ): Promise<boolean> {
   setBaseUrl(baseUrl);
 
-  const form = new FormData();
-  form.append('username', username);
-  form.append('password', password);
+  // Same as Bruce WebUI login.html: POST application/x-www-form-urlencoded (not multipart).
+  const body = `username=${encodeURIComponent(username)}&password=${encodeURIComponent(password)}`;
+  const origin = baseUrl.replace(/\/$/, '');
+  const loginUrl = `${origin}/login`;
 
   try {
-    const response = await apiClient.post('/login', form, {
-      headers: { 'Content-Type': 'multipart/form-data' },
-      maxRedirects: 0,
-      validateStatus: (status) => status >= 200 && status < 400,
-    });
-
-    // Success path: extract BRUCESESSION from common header/body shapes.
-    const setCookieHeader = response.headers['set-cookie'];
-    const xBruceSessionHeader = response.headers['x-bruce-session'];
     let sessionToken: string | null = null;
 
-    if (setCookieHeader) {
-      const cookies = Array.isArray(setCookieHeader)
-        ? setCookieHeader
-        : [setCookieHeader];
-      for (const cookie of cookies) {
-        const match = cookie.match(/BRUCESESSION=([a-zA-Z0-9]+)/);
-        if (match) {
-          sessionToken = match[1];
-          break;
+    // 1) fetch + redirect:manual — RN often surfaces Set-Cookie here better than axios alone.
+    const fetchRes = await fetch(loginUrl, {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/x-www-form-urlencoded' },
+      body,
+      redirect: 'manual',
+    } as Parameters<typeof fetch>[1]);
+
+    const fetchLocation = fetchRes.headers.get('Location') ?? '';
+    if (fetchLocation.includes('failed')) {
+      return false;
+    }
+
+    sessionToken = extractSessionFromFetchHeaders(fetchRes);
+
+    // 2) Android: OkHttp may store the cookie jar after fetch — read it back.
+    if (!sessionToken && Platform.OS === 'android') {
+      try {
+        const jar = await CookieManager.get(origin);
+        const c = jar?.BRUCESESSION;
+        if (c && typeof c === 'object' && 'value' in c && typeof c.value === 'string') {
+          sessionToken = c.value;
+        }
+      } catch {
+        /* CookieManager optional if native module not linked */
+      }
+    }
+
+    // 3) Axios + raw XHR header dump (some RN builds only expose Set-Cookie there).
+    if (!sessionToken) {
+      const response = await apiClient.post('/login', body, {
+        headers: { 'Content-Type': 'application/x-www-form-urlencoded' },
+        maxRedirects: 0,
+        validateStatus: (status) => status >= 200 && status < 400,
+      });
+
+      const location = String(getResponseHeader(response, 'location') ?? '');
+      if (location.includes('failed')) {
+        return false;
+      }
+
+      sessionToken =
+        extractBruceSessionToken(response.headers)
+        ?? extractBruceSessionFromXHR((response as { request?: unknown }).request);
+
+      if (!sessionToken) {
+        const xBruce = getResponseHeader(response, 'x-bruce-session');
+        if (xBruce != null) {
+          sessionToken = Array.isArray(xBruce) ? xBruce[0] ?? null : String(xBruce);
         }
       }
     }
 
-    if (!sessionToken && xBruceSessionHeader) {
-      if (Array.isArray(xBruceSessionHeader)) {
-        sessionToken = xBruceSessionHeader[0] ?? null;
-      } else {
-        sessionToken = String(xBruceSessionHeader);
-      }
-    }
-
-    if (!sessionToken && response.data && typeof response.data === 'object') {
-      const maybeSession = (response.data as any).session ?? (response.data as any).token;
-      if (typeof maybeSession === 'string' && maybeSession.length > 0) {
-        sessionToken = maybeSession;
-      }
-    }
-
-    // Also check Location header — failed login redirects to /?failed
-    const location = response.headers.location ?? '';
-    if (location.includes('failed')) {
-      return false;
-    }
-
     if (sessionToken) {
       await AsyncStorage.setItem(STORAGE_KEYS.session, sessionToken);
-      await AsyncStorage.setItem(STORAGE_KEYS.baseUrl, baseUrl);
+      await AsyncStorage.setItem(STORAGE_KEYS.baseUrl, origin);
       return true;
     }
 
-    // Server redirected to success path but sent no Set-Cookie header.
-    // Without a token every subsequent request will 401, so treat as failure.
     return false;
   } catch (err: any) {
     // A network error means the device is unreachable

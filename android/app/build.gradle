@@ -73,6 +73,22 @@ def enableProguardInReleaseBuilds = false
  */
 def jscFlavor = 'io.github.react-native-community:jsc-android:2026004.+'
 
+// Keep APK / Play Store version in sync with repo root package.json — bump "version" for each release.
+def packageJson = new groovy.json.JsonSlurper().parse(file("$projectDir/../../package.json"))
+def pkgVersionName = (packageJson.version ?: "0.0.1").toString()
+
+/** Semver major.minor.patch → single integer (max 99 per component). Bump package.json version each release. */
+def semverToVersionCode(String v) {
+    def core = v.split(/[-+]/)[0]
+    def parts = core.split("\\.")
+    def maj = (parts.length > 0 ? parts[0].replaceAll("[^0-9]", "") : "0") ?: "0"
+    def min = (parts.length > 1 ? parts[1].replaceAll("[^0-9]", "") : "0") ?: "0"
+    def pat = (parts.length > 2 ? parts[2].replaceAll("[^0-9]", "") : "0") ?: "0"
+    return (maj as int) * 10_000 + (min as int) * 100 + (pat as int)
+}
+
+def pkgVersionCode = semverToVersionCode(pkgVersionName)
+
 android {
     ndkVersion rootProject.ext.ndkVersion
     buildToolsVersion rootProject.ext.buildToolsVersion
@@ -83,8 +99,8 @@ android {
         applicationId "com.brucelink"
         minSdkVersion rootProject.ext.minSdkVersion
         targetSdkVersion rootProject.ext.targetSdkVersion
-        versionCode 1
-        versionName "1.0"
+        versionCode pkgVersionCode
+        versionName pkgVersionName
     }
     signingConfigs {
         debug {
@@ -104,6 +120,14 @@ android {
             signingConfig signingConfigs.debug
             minifyEnabled enableProguardInReleaseBuilds
             proguardFiles getDefaultProguardFile("proguard-android.txt"), "proguard-rules.pro"
+        }
+    }
+
+    applicationVariants.configureEach { variant ->
+        variant.outputs.configureEach { output ->
+            if (output.outputFileName != null && output.outputFileName.endsWith('.apk')) {
+                output.outputFileName = "BruceLink-v${variant.versionName}-build${variant.versionCode}-${variant.buildType.name}.apk"
+            }
         }
     }
 }

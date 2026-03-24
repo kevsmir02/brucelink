@@ -94,7 +94,7 @@ adb install -r android/app/build/outputs/apk/release/app-release.apk
 
 1. On your Android device, connect to the **BruceNet** WiFi access point (default password: `brucenet`)
 2. Open BruceLink
-3. Enter the device IP (default `192.168.4.1`), username (`admin`), and password (`bruce`)
+3. Enter the device URL (default `http://172.0.0.1`), username (`admin`), and password (`admin`)
 4. Tap **Connect**
 
 > The app communicates exclusively over HTTP on the local AP — no internet connection is used or required.
@@ -124,7 +124,7 @@ In **`__DEV__`** (debug) builds, the login screen includes **Skip login — twea
 
 ## API Overview
 
-All communication targets the Bruce REST API at `http://192.168.4.1` (configurable):
+All communication targets the Bruce REST API at your device URL (default `http://172.0.0.1` on many Bruce AP setups; configurable):
 
 | Endpoint | Purpose |
 |---|---|

@@ -39,10 +39,13 @@ export function LoginScreen({ navigation, onLoginSuccess }: Props) {
     setLoading(true);
     vibrate(30);
 
-    const url = ip.startsWith('http') ? ip : `http://${ip}`;
+    const normalizedIp = ip.trim();
+    const normalizedUsername = username.trim();
+    const normalizedPassword = password.trim();
+    const url = normalizedIp.startsWith('http') ? normalizedIp : `http://${normalizedIp}`;
 
     try {
-      const success = await login(url, username, password);
+      const success = await login(url, normalizedUsername, normalizedPassword);
       if (success) {
         onLoginSuccess(url);
         navigation.replace('Dashboard');
@@ -97,12 +100,12 @@ export function LoginScreen({ navigation, onLoginSuccess }: Props) {
           <View style={styles.card}>
             <Text style={styles.sectionTitle}>Connect to Device</Text>
 
-            <Text style={styles.inputLabel}>Device IP</Text>
+            <Text style={styles.inputLabel}>Device URL</Text>
             <TextInput
               style={styles.input}
               value={ip}
               onChangeText={setIp}
-              placeholder="192.168.4.1"
+              placeholder="http://172.0.0.1"
               placeholderTextColor={COLORS.textMuted}
               autoCapitalize="none"
               autoCorrect={false}
@@ -125,7 +128,7 @@ export function LoginScreen({ navigation, onLoginSuccess }: Props) {
               style={styles.input}
               value={password}
               onChangeText={setPassword}
-              placeholder="bruce"
+              placeholder="admin"
               placeholderTextColor={COLORS.textMuted}
               secureTextEntry
               autoCapitalize="none"

@@ -27,7 +27,7 @@ export const STORAGE_KEYS = {
   lastPath: '@bruce_last_path',
 };
 
-export const DEFAULT_BASE_URL = 'http://192.168.4.1';
+export const DEFAULT_BASE_URL = 'http://172.0.0.1';
 
 /**
  * AsyncStorage session value while using "Skip login" in development.
@@ -35,7 +35,7 @@ export const DEFAULT_BASE_URL = 'http://192.168.4.1';
  */
 export const DEV_BYPASS_SESSION_TOKEN = '__BRUCELINK_DEV_UI_BYPASS__';
 export const DEFAULT_USERNAME = 'admin';
-export const DEFAULT_PASSWORD = 'bruce';
+export const DEFAULT_PASSWORD = 'admin';
 
 export const EXECUTABLE_EXTENSIONS: Record<string, (path: string) => string> = {
   '.ir': path => `ir tx_from_file "${path}"`,
