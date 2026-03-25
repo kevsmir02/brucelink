@@ -17,7 +17,7 @@ import { useSafeAreaInsets } from 'react-native-safe-area-context';
 
 import { vibrate } from '../utils/vibrate';
 import type { RootStackParamList } from '../types';
-import { sendCommand, getScreen, isDevBypassActive } from '../services/api';
+import { sendCommand, getScreen } from '../services/api';
 import { COLORS } from '../utils/constants';
 
 type Props = NativeStackScreenProps<RootStackParamList, 'Navigator'>;
@@ -353,8 +353,7 @@ export function NavigatorWebCanvas(_props: Props) {
   const [navigating,    setNavigating]    = useState(false);
   const [wifiWarning,   setWifiWarning]   = useState(false);
   const [autoReloadMs,  setAutoReloadMs]  = useState(0);
-  /** Why the canvas may be empty (dev bypass vs no device / network). */
-  const [screenHint,    setScreenHint]    = useState<'dev' | 'offline' | null>(null);
+  const [screenHint,    setScreenHint]    = useState<'offline' | null>(null);
 
   // Fetch the TFT binary blob and push it into the WebView canvas
   const fetchAndRender = useCallback(async () => {
@@ -362,13 +361,10 @@ export function NavigatorWebCanvas(_props: Props) {
     loadingRef.current = true;
     setLoading(true);
     try {
-      const bypass = await isDevBypassActive();
       const b64 = await getScreen();
       if (b64 && webViewRef.current) {
         setScreenHint(null);
         webViewRef.current.postMessage(b64);
-      } else if (bypass) {
-        setScreenHint('dev');
       } else {
         setScreenHint('offline');
       }
@@ -496,17 +492,15 @@ export function NavigatorWebCanvas(_props: Props) {
         {screenHint != null && (
           <View style={styles.screenHintOverlay} pointerEvents="none">
             <Icon
-              name={screenHint === 'dev' ? 'test-tube' : 'wifi-off'}
+              name="wifi-off"
               size={28}
               color={COLORS.textMuted}
             />
             <Text style={styles.screenHintTitle}>
-              {screenHint === 'dev' ? 'Development mode' : 'No screen data'}
+              No screen data
             </Text>
             <Text style={styles.screenHintBody}>
-              {screenHint === 'dev'
-                ? 'Skip login uses mock APIs only — there is no device to mirror. Log in while connected to the Bruce AP to use Navigator.'
-                : 'Could not download /getscreen. Connect the phone/emulator to the Bruce Wi‑Fi access point, ensure the URL in Settings matches the device, then tap reload.'}
+              Could not download /getscreen. Connect the phone/emulator to the Bruce Wi-Fi access point, ensure the URL in Settings matches the device, then tap reload.
             </Text>
           </View>
         )}

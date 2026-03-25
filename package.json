@@ -9,7 +9,6 @@
     "lint": "eslint .",
     "start": "react-native start",
     "test": "jest",
-    "mock:bruce": "node scripts/mock-bruce-server.js",
     "postinstall": "patch-package"
   },
   "dependencies": {

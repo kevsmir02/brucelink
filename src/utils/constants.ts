@@ -28,12 +28,6 @@ export const STORAGE_KEYS = {
 };
 
 export const DEFAULT_BASE_URL = 'http://172.0.0.1';
-
-/**
- * AsyncStorage session value while using "Skip login" in development.
- * All API calls use local mocks; no network.
- */
-export const DEV_BYPASS_SESSION_TOKEN = '__BRUCELINK_DEV_UI_BYPASS__';
 export const DEFAULT_USERNAME = 'admin';
 export const DEFAULT_PASSWORD = 'admin';
 

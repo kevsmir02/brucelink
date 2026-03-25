@@ -118,10 +118,6 @@ adb install -r android/app/build/outputs/apk/release/app-release.apk
 4. Trigger execution (run file or send command from Terminal).
 5. Monitor interaction in Navigator.
 
-### Skip login (development builds only)
-
-In **`__DEV__`** (debug) builds, the login screen includes **Skip login — tweak UI (dev only)**. That opens the app immediately with **local placeholder data** so you can work on screens without a device. This control is **not** included in release builds.
-
 ## API Overview
 
 All communication targets the Bruce REST API at your device URL (default `http://172.0.0.1` on many Bruce AP setups; configurable):

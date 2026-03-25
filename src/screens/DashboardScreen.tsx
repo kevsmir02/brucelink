@@ -12,7 +12,7 @@ import {
 import { NativeStackScreenProps } from '@react-navigation/native-stack';
 import { useFocusEffect } from '@react-navigation/native';
 import { RootStackParamList, SystemInfo } from '../types';
-import { getSystemInfo, rebootDevice, isDevBypassActive } from '../services/api';
+import { getSystemInfo, rebootDevice } from '../services/api';
 import { StorageBar } from '../components/StorageBar';
 import { QuickAction } from '../components/QuickAction';
 import { COLORS } from '../utils/constants';
@@ -25,7 +25,6 @@ export function DashboardScreen({ navigation }: Props) {
   const [info, setInfo] = useState<SystemInfo | null>(null);
   const [refreshing, setRefreshing] = useState(false);
   const [error, setError] = useState<string | null>(null);
-  const [devUiOnly, setDevUiOnly] = useState(false);
 
   const fetchInfo = useCallback(async () => {
     setError(null);
@@ -43,9 +42,6 @@ export function DashboardScreen({ navigation }: Props) {
   useFocusEffect(
     useCallback(() => {
       fetchInfo();
-      if (__DEV__) {
-        isDevBypassActive().then(setDevUiOnly);
-      }
     }, [fetchInfo]),
   );
 
@@ -91,15 +87,6 @@ export function DashboardScreen({ navigation }: Props) {
             colors={[COLORS.primary]}
           />
         }>
-
-        {__DEV__ && devUiOnly && (
-          <View style={styles.devBanner}>
-            <Text style={styles.devBannerText}>
-              Dev UI preview — fake data. Log out and use Connect with a real device for a live API.
-            </Text>
-          </View>
-        )}
-
         {/* Connection status */}
         <View style={styles.banner}>
           <View>
@@ -187,19 +174,6 @@ const styles = StyleSheet.create({
   content: {
     padding: 16,
     paddingBottom: 32,
-  },
-  devBanner: {
-    backgroundColor: 'rgba(136,136,136,0.15)',
-    borderWidth: 1,
-    borderColor: '#555',
-    borderRadius: 8,
-    padding: 10,
-    marginBottom: 12,
-  },
-  devBannerText: {
-    color: COLORS.textMuted,
-    fontSize: 11,
-    lineHeight: 16,
   },
   banner: {
     backgroundColor: COLORS.surface,
