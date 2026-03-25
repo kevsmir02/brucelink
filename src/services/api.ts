@@ -405,13 +405,17 @@ export async function renameFile(
 // Command interface
 // ---------------------------------------------------------------------------
 export async function sendCommand(command: string): Promise<string> {
-  // Firmware expects simple x-www-form-urlencoded body (same as WebUI). Multipart
-  // FormData has been observed to destabilize some Bruce builds (reboots / crashes).
-  const body = `cmnd=${encodeURIComponent(command)}`;
-  const { data } = await apiClient.post<string>('/cm', body, {
-    headers: { 'Content-Type': 'application/x-www-form-urlencoded' },
+  // Must match embedded Web UI (index.js requestPost): POST /cm with multipart field "cmnd".
+  // Urlencoded bodies are not parsed the same on ESPAsyncWebServer in some builds; wrong or
+  // missing cmnd can corrupt CLI handling and has been linked to device resets.
+  const trimmed = command.trim();
+  const form = new FormData();
+  form.append('cmnd', trimmed);
+
+  const { data } = await apiClient.post<string>('/cm', form, {
     responseType: 'text',
     validateStatus: s => s < 500,
+    timeout: 15000,
   });
   return data as unknown as string;
 }
