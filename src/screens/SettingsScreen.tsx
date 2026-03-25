@@ -8,7 +8,6 @@ import {
   TouchableOpacity,
   Alert,
   ActivityIndicator,
-  Linking,
   ToastAndroid,
 } from 'react-native';
 import { NativeStackScreenProps } from '@react-navigation/native-stack';
@@ -19,10 +18,12 @@ import { updateCredentials, rebootDevice, logout as apiLogout } from '../service
 import { COLORS } from '../utils/constants';
 import AsyncStorage from '@react-native-async-storage/async-storage';
 import { STORAGE_KEYS } from '../utils/constants';
+import { useSafeAreaInsets } from 'react-native-safe-area-context';
 
 type Props = NativeStackScreenProps<RootStackParamList, 'Settings'>;
 
 export function SettingsScreen({ navigation }: Props) {
+  const insets = useSafeAreaInsets();
   const [newUsername, setNewUsername] = useState('');
   const [newPassword, setNewPassword] = useState('');
   const [credSaving, setCredSaving] = useState(false);
@@ -81,7 +82,9 @@ export function SettingsScreen({ navigation }: Props) {
   };
 
   return (
-    <ScrollView style={styles.root} contentContainerStyle={styles.content}>
+    <ScrollView
+      style={styles.root}
+      contentContainerStyle={[styles.content, { paddingBottom: Math.max(insets.bottom, 16) + 16 }]}>
 
       {/* WebUI Credentials */}
       <SectionHeader title="WEB UI CREDENTIALS" icon="key-outline" />
@@ -155,18 +158,8 @@ export function SettingsScreen({ navigation }: Props) {
         <View style={styles.divider} />
         <View style={styles.aboutRow}>
           <Text style={styles.aboutLabel}>Firmware</Text>
-          <Text style={styles.aboutValue}>Bruce ESP32</Text>
+          <Text style={styles.aboutValue}>1.14</Text>
         </View>
-        <View style={styles.divider} />
-        <TouchableOpacity
-          style={styles.aboutRow}
-          onPress={() => Linking.openURL('https://github.com/pr3y/Bruce')}>
-          <Text style={styles.aboutLabel}>Bruce GitHub</Text>
-          <View style={styles.linkRow}>
-            <Text style={styles.link}>github.com/pr3y/Bruce</Text>
-            <Icon name="open-in-new" size={14} color={COLORS.primary} />
-          </View>
-        </TouchableOpacity>
       </View>
 
     </ScrollView>
@@ -322,14 +315,5 @@ const styles = StyleSheet.create({
     color: COLORS.text,
     fontSize: 14,
     fontFamily: 'Courier New',
-  },
-  linkRow: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    gap: 6,
-  },
-  link: {
-    color: COLORS.primary,
-    fontSize: 13,
   },
 });

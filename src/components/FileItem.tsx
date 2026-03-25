@@ -79,7 +79,7 @@ const styles = StyleSheet.create({
     marginRight: 12,
   },
   folderIcon: {
-    backgroundColor: 'rgba(0,222,0,0.1)',
+    backgroundColor: 'rgba(155,81,224,0.12)',
   },
   fileIcon: {
     backgroundColor: 'rgba(255,255,255,0.05)',
@@ -98,7 +98,7 @@ const styles = StyleSheet.create({
     marginTop: 2,
   },
   execBadge: {
-    backgroundColor: 'rgba(0,222,0,0.15)',
+    backgroundColor: 'rgba(155,81,224,0.18)',
     borderRadius: 4,
     paddingHorizontal: 6,
     paddingVertical: 2,

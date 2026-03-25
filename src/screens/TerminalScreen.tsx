@@ -8,7 +8,9 @@ import {
   TouchableOpacity,
   KeyboardAvoidingView,
   ActivityIndicator,
+  Platform,
 } from 'react-native';
+import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import { vibrate } from '../utils/vibrate';
 import { NativeStackScreenProps } from '@react-navigation/native-stack';
 import Icon from 'react-native-vector-icons/MaterialCommunityIcons';
@@ -26,6 +28,7 @@ const QUICK_COMMANDS = [
 ];
 
 export function TerminalScreen(_props: Props) {
+  const insets = useSafeAreaInsets();
   const [history, setHistory] = useState<CommandHistoryItem[]>([]);
   const [input, setInput] = useState('');
   const [loading, setLoading] = useState(false);
@@ -67,7 +70,9 @@ export function TerminalScreen(_props: Props) {
   };
 
   return (
-    <KeyboardAvoidingView style={styles.root} behavior="padding">
+    <KeyboardAvoidingView
+      style={styles.root}
+      behavior={Platform.OS === 'ios' ? 'padding' : undefined}>
       {/* Info notice */}
       <View style={styles.noticeBanner}>
         <Icon name="information-outline" size={14} color={COLORS.primary} />
@@ -112,7 +117,7 @@ export function TerminalScreen(_props: Props) {
       <ScrollView
         horizontal
         showsHorizontalScrollIndicator={false}
-        style={styles.chips}
+        style={[styles.chips, { paddingBottom: Math.max(insets.bottom, 6) }]}
         contentContainerStyle={styles.chipsContent}>
         {QUICK_COMMANDS.map(cmd => (
           <CommandChip key={cmd} label={cmd} onPress={() => runCommand(cmd)} />
@@ -120,7 +125,7 @@ export function TerminalScreen(_props: Props) {
       </ScrollView>
 
       {/* Input row */}
-      <View style={styles.inputRow}>
+      <View style={[styles.inputRow, { paddingBottom: Math.max(insets.bottom, 10) }]}>
         <Text style={styles.inputPrompt}>$</Text>
         <TextInput
           style={styles.input}
@@ -160,7 +165,7 @@ const styles = StyleSheet.create({
   noticeBanner: {
     flexDirection: 'row',
     alignItems: 'center',
-    backgroundColor: 'rgba(0,222,0,0.06)',
+    backgroundColor: 'rgba(155,81,224,0.1)',
     borderBottomWidth: 1,
     borderBottomColor: COLORS.primaryDim,
     paddingHorizontal: 14,
@@ -217,12 +222,13 @@ const styles = StyleSheet.create({
   chips: {
     borderTopWidth: 1,
     borderTopColor: COLORS.border,
-    maxHeight: 50,
+    minHeight: 50,
     backgroundColor: COLORS.background,
   },
   chipsContent: {
     paddingHorizontal: 12,
-    paddingVertical: 8,
+    paddingTop: 8,
+    paddingBottom: 0,
     alignItems: 'center',
   },
   inputRow: {
@@ -232,7 +238,8 @@ const styles = StyleSheet.create({
     borderTopWidth: 1,
     borderTopColor: COLORS.border,
     paddingHorizontal: 12,
-    paddingVertical: 10,
+    paddingTop: 10,
+    paddingBottom: 10,
   },
   inputPrompt: {
     color: COLORS.primary,

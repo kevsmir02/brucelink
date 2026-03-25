@@ -9,10 +9,12 @@ import {
   ScrollView,
   ActivityIndicator,
   StatusBar,
+  Platform,
 } from 'react-native';
 import { vibrate } from '../utils/vibrate';
 import AsyncStorage from '@react-native-async-storage/async-storage';
 import { NativeStackScreenProps } from '@react-navigation/native-stack';
+import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import { RootStackParamList } from '../types';
 import { login, enableDevBypass } from '../services/api';
 import { COLORS, STORAGE_KEYS, DEFAULT_BASE_URL, DEFAULT_USERNAME, DEFAULT_PASSWORD } from '../utils/constants';
@@ -22,6 +24,7 @@ type Props = NativeStackScreenProps<RootStackParamList, 'Login'> & {
 };
 
 export function LoginScreen({ navigation, onLoginSuccess }: Props) {
+  const insets = useSafeAreaInsets();
   const [ip, setIp] = useState(DEFAULT_BASE_URL);
   const [username, setUsername] = useState(DEFAULT_USERNAME);
   const [password, setPassword] = useState(DEFAULT_PASSWORD);
@@ -84,9 +87,11 @@ export function LoginScreen({ navigation, onLoginSuccess }: Props) {
   return (
     <View style={styles.root}>
       <StatusBar barStyle="light-content" backgroundColor={COLORS.background} />
-      <KeyboardAvoidingView style={styles.kav} behavior="padding">
+      <KeyboardAvoidingView
+        style={styles.kav}
+        behavior={Platform.OS === 'ios' ? 'padding' : undefined}>
         <ScrollView
-          contentContainerStyle={styles.scroll}
+          contentContainerStyle={[styles.scroll, { paddingBottom: Math.max(insets.bottom, 20) + 20 }]}
           keyboardShouldPersistTaps="handled">
 
           {/* Logo / Header */}
@@ -194,7 +199,8 @@ const styles = StyleSheet.create({
     flexGrow: 1,
     justifyContent: 'center',
     paddingHorizontal: 24,
-    paddingVertical: 40,
+    paddingTop: 40,
+    paddingBottom: 40,
   },
   logoSection: {
     alignItems: 'center',

@@ -13,6 +13,7 @@ import type { WebViewMessageEvent } from 'react-native-webview';
 import type { NativeStackScreenProps } from '@react-navigation/native-stack';
 import { useFocusEffect } from '@react-navigation/native';
 import Icon from 'react-native-vector-icons/MaterialCommunityIcons';
+import { useSafeAreaInsets } from 'react-native-safe-area-context';
 
 import { vibrate } from '../utils/vibrate';
 import type { RootStackParamList } from '../types';
@@ -342,6 +343,7 @@ function NavButton({ icon, label, onPress, disabled, isCenter }: NavButtonProps)
 // NavigatorScreen
 // ---------------------------------------------------------------------------
 export function NavigatorWebCanvas(_props: Props) {
+  const insets = useSafeAreaInsets();
   const webViewRef        = useRef<WebView>(null);
   const loadingRef        = useRef(false);
   const navigatingRef     = useRef(false);
@@ -516,7 +518,7 @@ export function NavigatorWebCanvas(_props: Props) {
       </View>
 
       {/* ── D-pad ── */}
-      <View style={styles.dpad}>
+      <View style={[styles.dpad, { paddingBottom: Math.max(insets.bottom, 10) }]}>
         {NAV_BUTTONS.map((row, rowIdx) => (
           <View key={rowIdx} style={styles.dpadRow}>
             {row.map(btn => (
@@ -685,7 +687,7 @@ const styles = StyleSheet.create({
     minHeight: 56,
   },
   navBtnCenter: {
-    backgroundColor: 'rgba(16,185,129,0.1)',
+    backgroundColor: 'rgba(155,81,224,0.14)',
     borderColor: COLORS.primary,
   },
   navBtnDisabled: {

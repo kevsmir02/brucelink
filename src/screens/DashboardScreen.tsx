@@ -16,10 +16,12 @@ import { getSystemInfo, rebootDevice, isDevBypassActive } from '../services/api'
 import { StorageBar } from '../components/StorageBar';
 import { QuickAction } from '../components/QuickAction';
 import { COLORS } from '../utils/constants';
+import { useSafeAreaInsets } from 'react-native-safe-area-context';
 
 type Props = NativeStackScreenProps<RootStackParamList, 'Dashboard'>;
 
 export function DashboardScreen({ navigation }: Props) {
+  const insets = useSafeAreaInsets();
   const [info, setInfo] = useState<SystemInfo | null>(null);
   const [refreshing, setRefreshing] = useState(false);
   const [error, setError] = useState<string | null>(null);
@@ -31,9 +33,12 @@ export function DashboardScreen({ navigation }: Props) {
       const data = await getSystemInfo();
       setInfo(data);
     } catch {
+      setInfo(null);
       setError('Could not reach device. Are you connected to BruceNet?');
     }
   }, []);
+
+  const isConnected = Boolean(info) && !error;
 
   useFocusEffect(
     useCallback(() => {
@@ -77,7 +82,7 @@ export function DashboardScreen({ navigation }: Props) {
       <StatusBar barStyle="light-content" backgroundColor={COLORS.background} />
       <ScrollView
         style={styles.scroll}
-        contentContainerStyle={styles.content}
+        contentContainerStyle={[styles.content, { paddingBottom: Math.max(insets.bottom, 16) + 16 }]}
         refreshControl={
           <RefreshControl
             refreshing={refreshing}
@@ -95,15 +100,15 @@ export function DashboardScreen({ navigation }: Props) {
           </View>
         )}
 
-        {/* Header Banner */}
+        {/* Connection status */}
         <View style={styles.banner}>
           <View>
-            <Text style={styles.bannerTitle}>Bruce ESP32</Text>
-            {info && (
-              <Text style={styles.version}>v{info.BRUCE_VERSION}</Text>
-            )}
+            <Text style={styles.bannerTitle}>Device {isConnected ? 'Connected' : 'Disconnected'}</Text>
+            <Text style={[styles.version, !isConnected && styles.versionDisconnected]}>
+              {isConnected ? `Firmware v${info?.BRUCE_VERSION}` : 'Waiting for device response'}
+            </Text>
           </View>
-          <View style={styles.statusDot} />
+          <View style={[styles.statusDot, !isConnected && styles.statusDotDisconnected]} />
         </View>
 
         {/* Error banner */}
@@ -219,6 +224,9 @@ const styles = StyleSheet.create({
     marginTop: 4,
     fontFamily: 'Courier New',
   },
+  versionDisconnected: {
+    color: COLORS.textMuted,
+  },
   statusDot: {
     width: 12,
     height: 12,
@@ -229,6 +237,10 @@ const styles = StyleSheet.create({
     shadowOpacity: 0.8,
     shadowRadius: 6,
     elevation: 4,
+  },
+  statusDotDisconnected: {
+    backgroundColor: COLORS.error,
+    shadowColor: COLORS.error,
   },
   errorBanner: {
     backgroundColor: 'rgba(255,68,68,0.1)',

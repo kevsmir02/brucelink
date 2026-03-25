@@ -14,6 +14,7 @@ import {
   Image,
   Animated,
 } from 'react-native';
+import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import { vibrate } from '../utils/vibrate';
 import { NativeStackScreenProps } from '@react-navigation/native-stack';
 import { useFocusEffect } from '@react-navigation/native';
@@ -134,6 +135,7 @@ function ExplorerListHeader({
 }
 
 export function FileExplorerScreen({ navigation, route }: Props) {
+  const insets = useSafeAreaInsets();
   const [fs, setFs] = useState<FileSystem>(route.params?.fs ?? 'SD');
   const [currentPath, setCurrentPath] = useState(route.params?.folder ?? '/');
   const [entries, setEntries] = useState<FileEntry[]>([]);
@@ -472,6 +474,7 @@ export function FileExplorerScreen({ navigation, route }: Props) {
         data={entries}
         keyExtractor={(item, idx) => `${item.path}-${idx}`}
         renderItem={renderItem}
+        contentContainerStyle={{ paddingBottom: Math.max(insets.bottom, 12) + 92 }}
         ListHeaderComponent={
           <ExplorerListHeader
             fs={fs}
@@ -504,7 +507,7 @@ export function FileExplorerScreen({ navigation, route }: Props) {
       />
 
       {/* FAB */}
-      <View style={styles.fab}>
+      <View style={[styles.fab, { bottom: Math.max(insets.bottom, 12) + 12 }]}>
         {fabOpen && (
           <View style={styles.fabMenu}>
             <TouchableOpacity style={styles.fabItem} onPress={handleUploadFile}>
@@ -536,7 +539,7 @@ export function FileExplorerScreen({ navigation, route }: Props) {
         animationType="slide"
         onRequestClose={closeActionSheet}>
         <TouchableOpacity style={styles.modalOverlay} onPress={closeActionSheet} activeOpacity={1}>
-          <View style={styles.actionSheet}>
+          <View style={[styles.actionSheet, { paddingBottom: Math.max(insets.bottom, 16) + 16 }]}>
             <View style={styles.actionHandle} />
             <Text style={styles.actionTitle} numberOfLines={1}>
               {selectedEntry?.name}
