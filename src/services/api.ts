@@ -405,19 +405,51 @@ export async function renameFile(
 // Command interface
 // ---------------------------------------------------------------------------
 export async function sendCommand(command: string): Promise<string> {
-  // Must match embedded Web UI (index.js requestPost): POST /cm with multipart field "cmnd".
-  // Urlencoded bodies are not parsed the same on ESPAsyncWebServer in some builds; wrong or
-  // missing cmnd can corrupt CLI handling and has been linked to device resets.
+  // Match Web UI: POST /cm, multipart field "cmnd" (see firmware embedded_resources/web_interface/index.js).
+  // Do not use axios here: on React Native, axios often mishandles FormData (wrong Content-Type /
+  // serialization), which breaks /cm entirely ("Network error") for Terminal and Navigator D-pad.
   const trimmed = command.trim();
   const form = new FormData();
   form.append('cmnd', trimmed);
 
-  const { data } = await apiClient.post<string>('/cm', form, {
-    responseType: 'text',
-    validateStatus: s => s < 500,
-    timeout: 15000,
-  });
-  return data as unknown as string;
+  const token = await AsyncStorage.getItem(STORAGE_KEYS.session);
+  const url = `${getBaseUrl()}/cm`;
+  const headers: Record<string, string> = {};
+  if (token) {
+    headers.Cookie = `BRUCESESSION=${token}`;
+  }
+
+  const controller = new AbortController();
+  const timeoutMs = 15000;
+  const timeoutId = setTimeout(() => controller.abort(), timeoutMs);
+
+  let res: Response;
+  try {
+    res = await fetch(url, {
+      method: 'POST',
+      headers,
+      body: form,
+      signal: controller.signal,
+    });
+  } catch (e: any) {
+    const msg = e?.name === 'AbortError' ? `Request timed out after ${timeoutMs / 1000}s` : e?.message;
+    throw new Error(msg ?? 'Network error');
+  } finally {
+    clearTimeout(timeoutId);
+  }
+
+  const text = await res.text();
+
+  if (res.status === 401) {
+    _navigateToLogin?.();
+    throw new Error('Unauthorized access (401)');
+  }
+
+  if (res.status >= 500) {
+    throw new Error(text || `Request failed with status ${res.status}`);
+  }
+
+  return text;
 }
 
 // ---------------------------------------------------------------------------
