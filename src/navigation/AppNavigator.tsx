@@ -7,6 +7,7 @@ import { RootStackParamList } from '../types';
 import { useAuth } from '../hooks/useAuth';
 import { setNavigateToLogin } from '../services/api';
 import { COLORS } from '../utils/constants';
+import { BrandedHeaderTitle } from '../components/BrandedHeaderTitle';
 
 import { LoginScreen } from '../screens/LoginScreen';
 import { DashboardScreen } from '../screens/DashboardScreen';
@@ -18,8 +19,12 @@ import { NavigatorScreen } from '../screens/NavigatorScreen';
 
 const Stack = createNativeStackNavigator<RootStackParamList>();
 
+function DashboardHeaderTitle() {
+  return <BrandedHeaderTitle />;
+}
+
 const screenOptions = {
-  headerStyle: { backgroundColor: '#1a1a1a' },
+  headerStyle: { backgroundColor: COLORS.background },
   headerTintColor: COLORS.primary,
   headerTitleStyle: { color: COLORS.text, fontWeight: '600' as const },
   headerShadowVisible: false,
@@ -67,7 +72,10 @@ export function AppNavigator() {
         <Stack.Screen
           name="Dashboard"
           component={DashboardScreen}
-          options={{ title: 'BruceLink', headerBackVisible: false }}
+          options={{
+            headerTitle: DashboardHeaderTitle,
+            headerBackVisible: false,
+          }}
         />
         <Stack.Screen
           name="FileExplorer"

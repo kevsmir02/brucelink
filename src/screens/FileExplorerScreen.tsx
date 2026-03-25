@@ -152,7 +152,7 @@ export function FileExplorerScreen({ navigation, route }: Props) {
   const [previewVisible, setPreviewVisible] = useState(false);
   const [downloadingPath, setDownloadingPath] = useState<string | null>(null);
 
-  // Prompt modal state (replaces Alert.prompt which is iOS-only)
+  // Prompt modal state (Alert.prompt is not available on Android)
   const [promptVisible, setPromptVisible] = useState(false);
   const [promptConfig, setPromptConfig] = useState<{
     title: string;
@@ -596,7 +596,7 @@ export function FileExplorerScreen({ navigation, route }: Props) {
         </TouchableOpacity>
       </Modal>
 
-      {/* Cross-platform prompt modal (Alert.prompt is iOS-only) */}
+      {/* Prompt modal (Alert.prompt is not available on Android) */}
       {promptConfig && (
         <PromptModal
           visible={promptVisible}

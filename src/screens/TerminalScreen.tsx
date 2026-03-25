@@ -8,7 +8,7 @@ import {
   TouchableOpacity,
   KeyboardAvoidingView,
   ActivityIndicator,
-  Platform,
+  Alert,
 } from 'react-native';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import { vibrate } from '../utils/vibrate';
@@ -23,9 +23,30 @@ import { COLORS } from '../utils/constants';
 type Props = NativeStackScreenProps<RootStackParamList, 'Terminal'>;
 
 const QUICK_COMMANDS = [
-  'info', 'help', 'uptime', 'free', 'settings', 'loader list',
-  'wifi on', 'wifi off', 'power reboot', 'power sleep', 'power off',
+  'info',
+  'help',
+  'uptime',
+  'free',
+  'settings',
+  'loader list',
+  'wifi on',
+  'wifi off',
 ];
+
+/** Commands that can power-cycle the device — confirm before sending. */
+function isDestructiveCommand(cmd: string): boolean {
+  const t = cmd.trim().toLowerCase();
+  if (!t) {
+    return false;
+  }
+  if (/^power\s+(reboot|off|sleep)\b/.test(t)) {
+    return true;
+  }
+  if (t === 'reboot' || /^reboot\b/.test(t)) {
+    return true;
+  }
+  return false;
+}
 
 export function TerminalScreen(_props: Props) {
   const insets = useSafeAreaInsets();
@@ -34,10 +55,7 @@ export function TerminalScreen(_props: Props) {
   const [loading, setLoading] = useState(false);
   const scrollRef = useRef<ScrollView>(null);
 
-  const runCommand = useCallback(async (cmd: string) => {
-    const trimmed = cmd.trim();
-    if (!trimmed) return;
-
+  const executeCommand = useCallback(async (trimmed: string) => {
     setInput('');
     setLoading(true);
     vibrate(20);
@@ -65,6 +83,34 @@ export function TerminalScreen(_props: Props) {
     }
   }, []);
 
+  const runCommand = useCallback(
+    (cmd: string) => {
+      const trimmed = cmd.trim();
+      if (!trimmed) {
+        return;
+      }
+      if (isDestructiveCommand(trimmed)) {
+        Alert.alert(
+          'Destructive command',
+          `Send "${trimmed}"? This can reboot or power off the Bruce device.`,
+          [
+            { text: 'Cancel', style: 'cancel' },
+            {
+              text: 'Send',
+              style: 'destructive',
+              onPress: () => {
+                executeCommand(trimmed).catch(() => {});
+              },
+            },
+          ],
+        );
+        return;
+      }
+      executeCommand(trimmed).catch(() => {});
+    },
+    [executeCommand],
+  );
+
   const clearHistory = () => {
     setHistory([]);
   };
@@ -72,7 +118,7 @@ export function TerminalScreen(_props: Props) {
   return (
     <KeyboardAvoidingView
       style={styles.root}
-      behavior={Platform.OS === 'ios' ? 'padding' : undefined}>
+      behavior={undefined}>
       {/* Info notice */}
       <View style={styles.noticeBanner}>
         <Icon name="information-outline" size={14} color={COLORS.primary} />

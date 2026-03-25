@@ -1,7 +1,6 @@
 import AsyncStorage from '@react-native-async-storage/async-storage';
 import axios, { AxiosInstance, InternalAxiosRequestConfig } from 'axios';
 import CookieManager from '@react-native-cookies/cookies';
-import { Platform } from 'react-native';
 import RNFS from 'react-native-fs';
 import { FileEntry, FileSystem, SystemInfo } from '../types';
 import { DEFAULT_BASE_URL, STORAGE_KEYS } from '../utils/constants';
@@ -200,8 +199,8 @@ export async function login(
 
     sessionToken = extractSessionFromFetchHeaders(fetchRes);
 
-    // 2) Android: OkHttp may store the cookie jar after fetch — read it back.
-    if (!sessionToken && Platform.OS === 'android') {
+    // 2) OkHttp may store the cookie jar after fetch — read it back (Android).
+    if (!sessionToken) {
       try {
         const jar = await CookieManager.get(origin);
         const c = jar?.BRUCESESSION;
@@ -406,12 +405,13 @@ export async function renameFile(
 // Command interface
 // ---------------------------------------------------------------------------
 export async function sendCommand(command: string): Promise<string> {
-  const form = new FormData();
-  form.append('cmnd', command);
-  const { data } = await apiClient.post<string>('/cm', form, {
-    headers: { 'Content-Type': 'multipart/form-data' },
+  // Firmware expects simple x-www-form-urlencoded body (same as WebUI). Multipart
+  // FormData has been observed to destabilize some Bruce builds (reboots / crashes).
+  const body = `cmnd=${encodeURIComponent(command)}`;
+  const { data } = await apiClient.post<string>('/cm', body, {
+    headers: { 'Content-Type': 'application/x-www-form-urlencoded' },
     responseType: 'text',
-    validateStatus: (s) => s < 500,
+    validateStatus: s => s < 500,
   });
   return data as unknown as string;
 }

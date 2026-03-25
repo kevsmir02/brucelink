@@ -9,7 +9,7 @@ import {
   ScrollView,
   ActivityIndicator,
   StatusBar,
-  Platform,
+  Image,
 } from 'react-native';
 import { vibrate } from '../utils/vibrate';
 import AsyncStorage from '@react-native-async-storage/async-storage';
@@ -17,7 +17,14 @@ import { NativeStackScreenProps } from '@react-navigation/native-stack';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import { RootStackParamList } from '../types';
 import { login } from '../services/api';
-import { COLORS, STORAGE_KEYS, DEFAULT_BASE_URL, DEFAULT_USERNAME, DEFAULT_PASSWORD } from '../utils/constants';
+import {
+  COLORS,
+  FONTS,
+  STORAGE_KEYS,
+  DEFAULT_BASE_URL,
+  DEFAULT_USERNAME,
+  DEFAULT_PASSWORD,
+} from '../utils/constants';
 
 type Props = NativeStackScreenProps<RootStackParamList, 'Login'> & {
   onLoginSuccess: (baseUrl: string) => void;
@@ -69,19 +76,27 @@ export function LoginScreen({ navigation, onLoginSuccess }: Props) {
 
   return (
     <View style={styles.root}>
-      <StatusBar barStyle="light-content" backgroundColor={COLORS.background} />
+      <StatusBar
+        translucent
+        backgroundColor="transparent"
+        barStyle="light-content"
+      />
       <KeyboardAvoidingView
         style={styles.kav}
-        behavior={Platform.OS === 'ios' ? 'padding' : undefined}>
+        behavior={undefined}>
         <ScrollView
           contentContainerStyle={[styles.scroll, { paddingBottom: Math.max(insets.bottom, 20) + 20 }]}
           keyboardShouldPersistTaps="handled">
 
           {/* Logo / Header */}
           <View style={styles.logoSection}>
-            <Text style={styles.logo}>{'[B]'}</Text>
+            <Image
+              source={require('../assets/images/bruce-logo.png')}
+              style={styles.logoImage}
+              resizeMode="contain"
+              accessibilityLabel="Bruce firmware logo"
+            />
             <Text style={styles.appName}>BruceLink</Text>
-            <Text style={styles.tagline}>ESP32 Control Panel</Text>
           </View>
 
           {/* Card */}
@@ -169,27 +184,20 @@ const styles = StyleSheet.create({
   },
   logoSection: {
     alignItems: 'center',
-    marginBottom: 36,
+    marginBottom: 32,
   },
-  logo: {
-    fontSize: 52,
-    color: COLORS.primary,
-    fontFamily: 'Courier New',
-    fontWeight: '900',
-    letterSpacing: 4,
+  logoImage: {
+    width: '100%',
+    maxWidth: 320,
+    height: 112,
+    marginBottom: 16,
   },
   appName: {
-    fontSize: 28,
-    color: COLORS.text,
-    fontWeight: '700',
-    letterSpacing: 2,
-    marginTop: 8,
-  },
-  tagline: {
-    fontSize: 13,
-    color: COLORS.textMuted,
+    fontSize: 22,
+    color: COLORS.primary,
+    fontFamily: FONTS.pixel,
     marginTop: 4,
-    letterSpacing: 1,
+    textAlign: 'center',
   },
   card: {
     backgroundColor: COLORS.surface,

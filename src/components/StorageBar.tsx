@@ -1,7 +1,7 @@
 import React from 'react';
 import { View, Text, StyleSheet } from 'react-native';
 import { StorageInfo } from '../types';
-import { COLORS } from '../utils/constants';
+import { COLORS, FONTS } from '../utils/constants';
 
 interface Props {
   label: string;
@@ -60,6 +60,7 @@ const styles = StyleSheet.create({
   stats: {
     color: COLORS.textMuted,
     fontSize: 13,
+    fontFamily: FONTS.mono,
   },
   track: {
     height: 8,
@@ -75,5 +76,6 @@ const styles = StyleSheet.create({
     color: COLORS.textMuted,
     fontSize: 12,
     marginTop: 4,
+    fontFamily: FONTS.mono,
   },
 });

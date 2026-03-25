@@ -15,7 +15,7 @@ import { RootStackParamList, SystemInfo } from '../types';
 import { getSystemInfo, rebootDevice } from '../services/api';
 import { StorageBar } from '../components/StorageBar';
 import { QuickAction } from '../components/QuickAction';
-import { COLORS } from '../utils/constants';
+import { COLORS, FONTS } from '../utils/constants';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
 
 type Props = NativeStackScreenProps<RootStackParamList, 'Dashboard'>;
@@ -75,10 +75,14 @@ export function DashboardScreen({ navigation }: Props) {
 
   return (
     <View style={styles.root}>
-      <StatusBar barStyle="light-content" backgroundColor={COLORS.background} />
+      <StatusBar
+        translucent
+        backgroundColor="transparent"
+        barStyle="light-content"
+      />
       <ScrollView
         style={styles.scroll}
-        contentContainerStyle={[styles.content, { paddingBottom: Math.max(insets.bottom, 16) + 16 }]}
+        contentContainerStyle={[styles.content, { paddingBottom: Math.max(insets.bottom, 16) + 24 }]}
         refreshControl={
           <RefreshControl
             refreshing={refreshing}
@@ -173,18 +177,16 @@ const styles = StyleSheet.create({
   },
   content: {
     padding: 16,
-    paddingBottom: 32,
+    paddingTop: 8,
   },
   banner: {
     backgroundColor: COLORS.surface,
-    borderRadius: 12,
+    borderRadius: 16,
     padding: 20,
     flexDirection: 'row',
     alignItems: 'center',
     justifyContent: 'space-between',
     marginBottom: 16,
-    borderWidth: 1,
-    borderColor: COLORS.primaryDim,
   },
   bannerTitle: {
     color: COLORS.text,
@@ -195,33 +197,32 @@ const styles = StyleSheet.create({
   version: {
     color: COLORS.primary,
     fontSize: 14,
-    marginTop: 4,
-    fontFamily: 'Courier New',
+    marginTop: 8,
+    fontFamily: FONTS.mono,
   },
   versionDisconnected: {
     color: COLORS.textMuted,
   },
   statusDot: {
-    width: 12,
-    height: 12,
-    borderRadius: 6,
+    width: 8,
+    height: 8,
+    borderRadius: 4,
     backgroundColor: COLORS.primary,
     shadowColor: COLORS.primary,
     shadowOffset: { width: 0, height: 0 },
-    shadowOpacity: 0.8,
-    shadowRadius: 6,
-    elevation: 4,
+    shadowOpacity: 0.45,
+    shadowRadius: 8,
+    elevation: 3,
   },
   statusDotDisconnected: {
     backgroundColor: COLORS.error,
     shadowColor: COLORS.error,
+    shadowOpacity: 0.4,
   },
   errorBanner: {
-    backgroundColor: 'rgba(255,68,68,0.1)',
-    borderRadius: 8,
-    borderWidth: 1,
-    borderColor: COLORS.errorDim,
-    padding: 12,
+    backgroundColor: 'rgba(255,68,68,0.12)',
+    borderRadius: 16,
+    padding: 16,
     marginBottom: 16,
   },
   errorText: {
@@ -230,35 +231,33 @@ const styles = StyleSheet.create({
   },
   card: {
     backgroundColor: COLORS.surface,
-    borderRadius: 12,
+    borderRadius: 16,
     padding: 16,
     marginBottom: 16,
-    borderWidth: 1,
-    borderColor: COLORS.border,
   },
   sectionLabel: {
     color: COLORS.textMuted,
     fontSize: 11,
-    fontWeight: '700',
+    fontWeight: '600',
     letterSpacing: 1.5,
-    marginBottom: 10,
-    marginTop: 4,
+    marginBottom: 8,
+    marginTop: 8,
   },
   divider: {
     height: 1,
-    backgroundColor: COLORS.border,
-    marginVertical: 12,
+    backgroundColor: 'rgba(255,255,255,0.06)',
+    marginVertical: 16,
   },
   grid: {
     flexDirection: 'row',
-    marginHorizontal: -6,
-    marginBottom: 0,
+    marginHorizontal: -4,
+    marginBottom: 8,
   },
   footer: {
     color: COLORS.textMuted,
     fontSize: 12,
     textAlign: 'center',
-    marginTop: 24,
+    marginTop: 16,
   },
   loader: {
     marginVertical: 24,

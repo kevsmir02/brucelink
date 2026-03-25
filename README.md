@@ -1,6 +1,6 @@
 # BruceLink
 
-BruceLink is a React Native Android app for controlling the [Bruce ESP32 firmware](https://github.com/pr3y/Bruce) over the device's local WiFi access point.
+BruceLink is an **Android-only** React Native app for controlling the [Bruce ESP32 firmware](https://github.com/pr3y/Bruce) over the device's local WiFi access point. There is no iOS target in this repository.
 
 ## Features
 
@@ -15,7 +15,7 @@ BruceLink is a React Native Android app for controlling the [Bruce ESP32 firmwar
 
 ## Tech Stack Used
 
-- React Native `0.84.1` (bare workflow)
+- React Native `0.84.1` (bare workflow, Android only)
 - React `19.2.3`
 - TypeScript `5.x`
 - Axios for HTTP requests
@@ -160,7 +160,6 @@ Base URL is configurable in-app (default commonly `http://172.0.0.1`).
 │       ├── fileHelpers.ts
 │       └── vibrate.ts
 ├── android/
-├── ios/
 └── __tests__/
 ```
 

@@ -6,16 +6,17 @@ import {
   TouchableOpacity,
   ActivityIndicator,
   ScrollView,
-  Platform,
 } from 'react-native';
 import { WebView } from 'react-native-webview';
 import type { WebViewMessageEvent } from 'react-native-webview';
 import type { NativeStackScreenProps } from '@react-navigation/native-stack';
-import { useFocusEffect } from '@react-navigation/native';
+import { useFocusEffect, useIsFocused } from '@react-navigation/native';
+import Orientation from 'react-native-orientation-locker';
 import Icon from 'react-native-vector-icons/MaterialCommunityIcons';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
 
 import { vibrate } from '../utils/vibrate';
+import { setImmersiveNavigation } from '../utils/bruceSystemUi';
 import type { RootStackParamList } from '../types';
 import { sendCommand, getScreen } from '../services/api';
 import { COLORS } from '../utils/constants';
@@ -121,6 +122,26 @@ function roundRect(x, y, w, h, r, fill) {
 function renderTFT(data) {
   placeholder.style.display = 'none';
 
+  /* Size canvas before drawing so early draw ops are not clipped or cleared wrongly. */
+  var scan = 0;
+  while (scan < data.length && scan + 2 < data.length) {
+    if (data[scan] !== 0xAA) break;
+    var esz = data[scan + 1];
+    var efn = data[scan + 2];
+    if (efn === 99 && esz >= 9 && scan + esz <= data.length) {
+      var bb = scan + 3;
+      var cw = (data[bb] << 8) | data[bb + 1];
+      var ch = (data[bb + 2] << 8) | data[bb + 3];
+      if (cw > 0 && ch > 0 && cw <= 4096 && ch <= 4096) {
+        canvas.width = cw;
+        canvas.height = ch;
+      }
+      break;
+    }
+    if (esz < 3 || scan + esz > data.length) break;
+    scan += esz;
+  }
+
   var startData = 0;
   var screenText = [];
 
@@ -158,6 +179,7 @@ function renderTFT(data) {
   }
 
   var offset = 0;
+  ctx.imageSmoothingEnabled = false;
   ctx.clearRect(0, 0, canvas.width, canvas.height);
 
   while (offset < data.length) {
@@ -247,12 +269,15 @@ function renderTFT(data) {
       /* Approximate TFT character width for the monospace font */
       var fw   = p.size === 3 ? 13.5 : p.size === 2 ? 9 : 4.5;
       var xOff = fn === 15 ? txt.length * fw : fn === 14 ? (txt.length * fw) / 2 : 0;
+      var th = Math.max(8, (p.size || 1) * 8);
+      var tw = Math.max(fw, txt.length * fw);
       /* Background fill */
       ctx.fillStyle = color565toCSS(bg);
-      ctx.fillRect(p.x - xOff, p.y, txt.length * fw, p.size * 8);
-      /* Text */
+      ctx.fillRect(p.x - xOff, p.y, tw, th);
+      /* Text — reset state each draw (canvas resize can reset the context on some WebViews) */
+      ctx.imageSmoothingEnabled = false;
       ctx.fillStyle    = color565toCSS(p.fg);
-      ctx.font         = (p.size * 8) + 'px monospace';
+      ctx.font         = th + 'px monospace';
       ctx.textBaseline = 'top';
       ctx.textAlign    = fn === 14 ? 'center' : fn === 15 ? 'right' : 'left';
       ctx.fillText(txt, p.x, p.y);
@@ -291,7 +316,7 @@ function handleMessage(ev) {
   }
 }
 
-/* React Native WebView fires 'message' on document (Android) or window (iOS) */
+/* React Native WebView fires 'message' on document (Android) */
 document.addEventListener('message', handleMessage);
 window.addEventListener('message',   handleMessage);
 </script>
@@ -324,7 +349,7 @@ function NavButton({ icon, label, onPress, disabled, isCenter }: NavButtonProps)
       activeOpacity={0.6}>
       <Icon
         name={icon}
-        size={isCenter ? 30 : 22}
+        size={isCenter ? 32 : 24}
         color={disabled ? COLORS.border : isCenter ? COLORS.primary : COLORS.text}
       />
       <Text
@@ -344,6 +369,7 @@ function NavButton({ icon, label, onPress, disabled, isCenter }: NavButtonProps)
 // ---------------------------------------------------------------------------
 export function NavigatorWebCanvas(_props: Props) {
   const insets = useSafeAreaInsets();
+  const isFocused = useIsFocused();
   const webViewRef        = useRef<WebView>(null);
   const loadingRef        = useRef(false);
   const navigatingRef     = useRef(false);
@@ -377,29 +403,31 @@ export function NavigatorWebCanvas(_props: Props) {
     }
   }, []);
 
-  // Auto-reload interval management
+  // Auto-reload only while this screen is focused (restarts correctly after navigate away/back)
   useEffect(() => {
     if (autoReloadTimer.current) {
       clearInterval(autoReloadTimer.current);
       autoReloadTimer.current = null;
     }
-    if (autoReloadMs > 0) {
+    if (isFocused && autoReloadMs > 0) {
       autoReloadTimer.current = setInterval(fetchAndRender, autoReloadMs);
     }
     return () => {
-      if (autoReloadTimer.current) { clearInterval(autoReloadTimer.current); }
+      if (autoReloadTimer.current) {
+        clearInterval(autoReloadTimer.current);
+        autoReloadTimer.current = null;
+      }
     };
-  }, [autoReloadMs, fetchAndRender]);
+  }, [isFocused, autoReloadMs, fetchAndRender]);
 
-  // Initial fetch when the screen is focused; clear timer on blur
   useFocusEffect(
     useCallback(() => {
+      Orientation.lockToLandscape();
+      setImmersiveNavigation(true);
       fetchAndRender();
       return () => {
-        if (autoReloadTimer.current) {
-          clearInterval(autoReloadTimer.current);
-          autoReloadTimer.current = null;
-        }
+        setImmersiveNavigation(false);
+        Orientation.unlockAllOrientations();
       };
     }, [fetchAndRender]),
   );
@@ -412,7 +440,10 @@ export function NavigatorWebCanvas(_props: Props) {
     vibrate(20);
     try {
       await sendCommand(cmd);
-      await new Promise<void>(r => setTimeout(r, 300));
+      /* Firmware needs time to redraw; a single early getscreen often returns partial UI (missing text). */
+      await new Promise<void>(r => setTimeout(r, 480));
+      await fetchAndRender();
+      await new Promise<void>(r => setTimeout(r, 280));
       await fetchAndRender();
     } catch { /* ignore */ }
     finally {
@@ -432,8 +463,7 @@ export function NavigatorWebCanvas(_props: Props) {
 
   return (
     <View style={styles.root}>
-      {/* ── Top bar: auto-reload chips + force-reload button ── */}
-      <View style={styles.topBar}>
+      <View style={[styles.topBar, { paddingTop: Math.max(insets.top, 8) }]}>
         <Text style={styles.topLabel}>Auto-reload:</Text>
         <ScrollView
           horizontal
@@ -463,7 +493,6 @@ export function NavigatorWebCanvas(_props: Props) {
         </TouchableOpacity>
       </View>
 
-      {/* ── WiFi warning banner ── */}
       {wifiWarning && (
         <View style={styles.wifiWarning}>
           <Icon name="alert" size={14} color="#f59e0b" />
@@ -473,60 +502,64 @@ export function NavigatorWebCanvas(_props: Props) {
         </View>
       )}
 
-      {/* ── Canvas area ── */}
-      <View style={styles.screenArea} collapsable={false}>
-        <WebView
-          ref={webViewRef}
-          source={NAVIGATOR_WEB_SOURCE}
-          style={styles.webView}
-          scrollEnabled={false}
-          bounces={false}
-          javaScriptEnabled
-          domStorageEnabled
-          onMessage={handleWebViewMessage}
-          originWhitelist={['*']}
-          {...(Platform.OS === 'android'
-            ? { androidLayerType: 'hardware' as const }
-            : {})}
-        />
-        {screenHint != null && (
-          <View style={styles.screenHintOverlay} pointerEvents="none">
-            <Icon
-              name="wifi-off"
-              size={28}
-              color={COLORS.textMuted}
+      <View
+        style={[
+          styles.bodyRow,
+          {
+            paddingBottom: Math.max(insets.bottom, 8),
+            paddingRight: Math.max(insets.right, 0),
+          },
+        ]}>
+        <View style={styles.canvasColumn} collapsable={false}>
+          <View style={styles.screenArea} collapsable={false}>
+            <WebView
+              ref={webViewRef}
+              source={NAVIGATOR_WEB_SOURCE}
+              style={styles.webView}
+              scrollEnabled={false}
+              bounces={false}
+              javaScriptEnabled
+              domStorageEnabled
+              onMessage={handleWebViewMessage}
+              originWhitelist={['*']}
+              androidLayerType="software"
             />
-            <Text style={styles.screenHintTitle}>
-              No screen data
-            </Text>
-            <Text style={styles.screenHintBody}>
-              Could not download /getscreen. Connect the phone/emulator to the Bruce Wi-Fi access point, ensure the URL in Settings matches the device, then tap reload.
-            </Text>
+            {screenHint != null && (
+              <View style={styles.screenHintOverlay} pointerEvents="none">
+                <Icon name="wifi-off" size={28} color={COLORS.textMuted} />
+                <Text style={styles.screenHintTitle}>No screen data</Text>
+                <Text style={styles.screenHintBody}>
+                  Could not download /getscreen. Connect the phone/emulator to the Bruce Wi-Fi access
+                  point, ensure the URL in Settings matches the device, then tap reload.
+                </Text>
+              </View>
+            )}
+            {navigating && (
+              <View style={styles.navigatingOverlay}>
+                <ActivityIndicator size="small" color={COLORS.primary} />
+              </View>
+            )}
           </View>
-        )}
-        {navigating && (
-          <View style={styles.navigatingOverlay}>
-            <ActivityIndicator size="small" color={COLORS.primary} />
-          </View>
-        )}
-      </View>
+        </View>
 
-      {/* ── D-pad ── */}
-      <View style={[styles.dpad, { paddingBottom: Math.max(insets.bottom, 10) }]}>
-        {NAV_BUTTONS.map((row, rowIdx) => (
-          <View key={rowIdx} style={styles.dpadRow}>
-            {row.map(btn => (
-              <NavButton
-                key={btn.id}
-                icon={btn.icon}
-                label={btn.label}
-                onPress={() => navigate(btn.cmd)}
-                disabled={navigating}
-                isCenter={btn.id === 'sel'}
-              />
+        <View style={styles.dpadRail}>
+          <View style={styles.dpad}>
+            {NAV_BUTTONS.map((row, rowIdx) => (
+              <View key={rowIdx} style={styles.dpadRow}>
+                {row.map(btn => (
+                  <NavButton
+                    key={btn.id}
+                    icon={btn.icon}
+                    label={btn.label}
+                    onPress={() => navigate(btn.cmd)}
+                    disabled={navigating}
+                    isCenter={btn.id === 'sel'}
+                  />
+                ))}
+              </View>
             ))}
           </View>
-        ))}
+        </View>
       </View>
     </View>
   );
@@ -535,21 +568,43 @@ export function NavigatorWebCanvas(_props: Props) {
 // ---------------------------------------------------------------------------
 // Styles
 // ---------------------------------------------------------------------------
+const DPAD_RAIL_WIDTH = 212;
+
 const styles = StyleSheet.create({
   root: {
     flex: 1,
     backgroundColor: COLORS.background,
   },
 
+  bodyRow: {
+    flex: 1,
+    flexDirection: 'row',
+    minHeight: 0,
+  },
+  canvasColumn: {
+    flex: 1,
+    minWidth: 0,
+    minHeight: 0,
+  },
+  dpadRail: {
+    width: DPAD_RAIL_WIDTH,
+    minHeight: 0,
+    borderLeftWidth: StyleSheet.hairlineWidth,
+    borderLeftColor: COLORS.border,
+    backgroundColor: COLORS.surfaceAlt,
+    justifyContent: 'center',
+    paddingHorizontal: 10,
+  },
+
   /* Top bar */
   topBar: {
     flexDirection: 'row',
     alignItems: 'center',
-    paddingHorizontal: 12,
-    paddingVertical: 8,
-    borderBottomWidth: 1,
+    paddingHorizontal: 14,
+    paddingBottom: 10,
+    borderBottomWidth: StyleSheet.hairlineWidth,
     borderBottomColor: COLORS.border,
-    gap: 8,
+    gap: 10,
   },
   topLabel: {
     color: COLORS.textMuted,
@@ -566,10 +621,10 @@ const styles = StyleSheet.create({
     gap: 6,
   },
   chip: {
-    paddingHorizontal: 10,
-    paddingVertical: 4,
-    borderRadius: 12,
-    borderWidth: 1,
+    paddingHorizontal: 12,
+    paddingVertical: 6,
+    borderRadius: 14,
+    borderWidth: StyleSheet.hairlineWidth,
     borderColor: COLORS.border,
     backgroundColor: COLORS.surface,
   },
@@ -620,11 +675,11 @@ const styles = StyleSheet.create({
     flex: 1,
     backgroundColor: '#000',
     position: 'relative',
+    minHeight: 0,
   },
   webView: {
     flex: 1,
     backgroundColor: '#000',
-    opacity: 0.99,
   },
   screenHintOverlay: {
     ...StyleSheet.absoluteFillObject,
@@ -654,45 +709,47 @@ const styles = StyleSheet.create({
     pointerEvents: 'none',
   },
 
-  /* D-pad */
+  /* D-pad (right rail, landscape-friendly) */
   dpad: {
-    paddingVertical: 10,
-    paddingHorizontal: 8,
-    borderTopWidth: 1,
-    borderTopColor: COLORS.border,
-    backgroundColor: COLORS.surface,
-    gap: 4,
+    flex: 1,
+    paddingVertical: 12,
+    gap: 10,
+    justifyContent: 'center',
   },
   dpadRow: {
     flexDirection: 'row',
-    justifyContent: 'space-around',
-    gap: 4,
+    justifyContent: 'center',
+    gap: 8,
+    alignItems: 'stretch',
   },
   navBtn: {
     flex: 1,
+    minWidth: 52,
     alignItems: 'center',
     justifyContent: 'center',
-    paddingVertical: 8,
-    borderRadius: 10,
+    paddingVertical: 12,
+    paddingHorizontal: 4,
+    borderRadius: 12,
     backgroundColor: COLORS.background,
-    borderWidth: 1,
-    borderColor: COLORS.border,
-    gap: 2,
-    minHeight: 56,
+    borderWidth: StyleSheet.hairlineWidth,
+    borderColor: 'rgba(255,255,255,0.08)',
+    gap: 4,
+    minHeight: 58,
   },
   navBtnCenter: {
-    backgroundColor: 'rgba(155,81,224,0.14)',
+    backgroundColor: 'rgba(168,85,247,0.12)',
     borderColor: COLORS.primary,
+    borderWidth: 1,
   },
   navBtnDisabled: {
     opacity: 0.35,
   },
   navBtnLabel: {
     color: COLORS.textMuted,
-    fontSize: 9,
-    fontWeight: '600',
+    fontSize: 10,
+    fontWeight: '500',
     textTransform: 'uppercase',
-    letterSpacing: 0.4,
+    letterSpacing: 0.3,
   },
   navBtnLabelCenter: {
     color: COLORS.primary,

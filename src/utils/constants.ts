@@ -1,15 +1,15 @@
 export const COLORS = {
-  background: '#0a0a0a',
-  surface: '#1a1a1a',
-  surfaceAlt: '#111111',
-  primary: '#9b51e0',
-  primaryDim: '#7b3fc2',
+  background: '#050505',
+  surface: '#0f0f0f',
+  surfaceAlt: '#141414',
+  primary: '#A855F7',
+  primaryDim: '#9333EA',
   text: '#e0e0e0',
   textMuted: '#888888',
   error: '#ff4444',
   errorDim: '#aa2222',
-  border: '#333333',
-  borderLight: '#444444',
+  border: '#18181B',
+  borderLight: '#27272A',
   warning: '#ffaa00',
   overlay: 'rgba(0,0,0,0.7)',
 };
@@ -18,6 +18,8 @@ export const FONTS = {
   mono: 'Courier New',
   monoSize: 13,
   regular: undefined, // system default
+  /** Press Start 2P (Android: linked via react-native.config.js + react-native-asset) */
+  pixel: 'PressStart2P-Regular',
 };
 
 export const STORAGE_KEYS = {
