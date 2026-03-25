@@ -1,36 +1,39 @@
 # BruceLink
 
-A React Native Android app for controlling the [Bruce ESP32 penetration testing firmware](https://github.com/pr3y/Bruce) over its local WiFi access point.
+BruceLink is a React Native Android app for controlling the [Bruce ESP32 firmware](https://github.com/pr3y/Bruce) over the device's local WiFi access point.
 
 ## Features
 
-- **Login** — connects to the Bruce device at a configurable IP with cookie-based session management
-- **Dashboard** — live firmware version, SD card and LittleFS storage usage bars, quick-action grid
-- **File Explorer** — browse SD and LittleFS filesystems, upload/download/rename/delete files, create folders/files, one-tap execution of `.ir`, `.sub`, `.js`, `.txt`, `.mp3` payloads
-- **File Editor** — full-screen monospace editor with save and run buttons, unsaved-change guard
-- **Terminal** — fire-and-forget CLI interface (`/cm` endpoint), quick-command chips, command history
-- **Navigator** — mirrors the device TFT via `/getscreen` in an embedded WebView canvas + D-pad (`nav` commands)
-- **Settings** — change WebUI credentials, reboot device, logout
+- Login with configurable device base URL and cookie-based session handling
+- Dashboard with firmware version and SD/LittleFS usage indicators
+- File Explorer for SD/LittleFS browsing, upload, download, rename, delete, create file, and create folder
+- One-tap execution for supported payload files (`.ir`, `.sub`, `.js`, `.txt`, `.mp3`)
+- File Editor with save and run actions plus unsaved-change protection
+- Terminal command interface with quick command chips and recent history
+- Navigator screen mirror (`/getscreen`) with D-pad command controls
+- Settings actions for credential update, reboot, and logout
 
-## Tech Stack
+## Tech Stack Used
 
-| Package | Purpose |
-|---|---|
-| React Native 0.84 (bare workflow) | App framework |
-| TypeScript | Type safety throughout |
-| Axios | HTTP client with cookie interceptor |
-| `@react-native-async-storage/async-storage` | Persisting session token and base URL |
-| `react-native-fs` | Streaming file downloads to Android Downloads folder |
-| `@react-navigation/native-stack` | Screen navigation |
-| `react-native-vector-icons` (MaterialCommunityIcons) | UI icons |
-| `react-native-webview` | Navigator screen TFT canvas (native module — requires a full Android rebuild after install) |
+- React Native `0.84.1` (bare workflow)
+- React `19.2.3`
+- TypeScript `5.x`
+- Axios for HTTP requests
+- `@react-native-cookies/cookies` for cookie interoperability
+- `@react-native-async-storage/async-storage` for session/base URL persistence
+- `react-native-fs` for file download and cache handling
+- React Navigation (`@react-navigation/native`, `@react-navigation/native-stack`)
+- `react-native-vector-icons` for UI iconography
+- `react-native-webview` for Navigator rendering
+- Android Gradle build system (APK generation)
 
-## Prerequisites
+## Pre-requisites
 
-- Node.js ≥ 22
-- Android Studio with an emulator or physical Android device
+- Node.js `>= 22.11.0`
+- npm (bundled with Node.js)
 - JDK 17
-- A device running Bruce ESP32 firmware (or just the emulator for UI development)
+- Android Studio + Android SDK + emulator/device
+- A Bruce firmware device (recommended for full testing)
 
 ## Setup
 
@@ -40,152 +43,125 @@ cd brucelink
 npm install
 ```
 
-### Android
+Run the app on Android:
 
 ```bash
-# Start Metro bundler
+# terminal 1
 npm start
 
-# In a separate terminal, build and install
+# terminal 2
 npm run android
 ```
 
-## Build APK (Debug and Release)
+## Commands for Building APK
 
-### Debug APK
+From project root:
 
-Build a local debug APK:
+```bash
+# debug install/run via React Native CLI
+npm run android
+
+# release APK via package script
+npm run android:release
+```
+
+Or directly via Gradle:
 
 ```bash
 cd android
+
+# debug APK
 ./gradlew assembleDebug
-```
 
-Output:
-
-```text
-android/app/build/outputs/apk/debug/app-debug.apk
-```
-
-### Release APK
-
-Build a release APK:
-
-```bash
-cd android
+# release APK
 ./gradlew assembleRelease
 ```
 
-Output:
+APK output paths:
 
-```text
-android/app/build/outputs/apk/release/app-release.apk
-```
+- `android/app/build/outputs/apk/debug/app-debug.apk`
+- `android/app/build/outputs/apk/release/app-release.apk`
 
-Install it manually with ADB (optional):
+Optional install with ADB:
 
 ```bash
 adb install -r android/app/build/outputs/apk/release/app-release.apk
 ```
 
-> Note: the current Gradle config signs release builds with the debug keystore. For Play Store or production distribution, configure your own release keystore first.
+> Note: release is currently debug-signed unless you configure your own production keystore.
 
-## Connecting to a Bruce Device
+## How to Use the App Itself
 
-1. On your Android device, connect to the **BruceNet** WiFi access point (default password: `brucenet`)
-2. Open BruceLink
-3. Enter the device URL (default `http://172.0.0.1`), username (`admin`), and password (`admin`)
-4. Tap **Connect**
+1. Connect your Android phone to the Bruce AP (default SSID is usually `BruceNet`).
+2. Open BruceLink.
+3. In Login, enter base URL (example: `http://172.0.0.1`), username, and password.
+4. Tap Connect.
+5. Use Dashboard to verify firmware version and storage.
+6. Use File Explorer to manage files in `sd` and `littlefs`.
+7. Open files in File Editor to edit/save/run.
+8. Use Terminal to send direct commands.
+9. Use Navigator to mirror the TFT output and send nav commands.
+10. Use Settings to change credentials, reboot, or logout.
 
-> The app communicates exclusively over HTTP on the local AP — no internet connection is used or required.
+## API List
 
-## How to Use the App
+Base URL is configurable in-app (default commonly `http://172.0.0.1`).
 
-1. Connect your phone to the Bruce device AP (default SSID: BruceNet).
-2. Open BruceLink and log in with device IP, username, and password.
-3. On **Dashboard**, verify firmware and storage status.
-4. Open **File Explorer** to browse SD/LittleFS, then upload/download/create/rename/delete files and folders.
-5. Tap a file to open **File Editor**, edit content, and save or run supported payload files.
-6. Use **Terminal** to send direct CLI commands with quick chips and command history.
-7. Use **Navigator** to mirror the TFT screen and send D-pad navigation commands.
-8. In **Settings**, update WebUI credentials, reboot the device, or logout.
-
-### Typical Workflow
-
-1. Login.
-2. Check health on Dashboard.
-3. Transfer or edit scripts in File Explorer/File Editor.
-4. Trigger execution (run file or send command from Terminal).
-5. Monitor interaction in Navigator.
-
-## API Overview
-
-All communication targets the Bruce REST API at your device URL (default `http://172.0.0.1` on many Bruce AP setups; configurable):
-
-| Endpoint | Purpose |
-|---|---|
-| `POST /login` | Cookie-based auth (302 redirect, `BRUCESESSION` token) |
-| `GET /systeminfo` | Firmware version, storage stats |
-| `GET /listfiles` | Custom line-delimited directory listing |
-| `GET /file` | Download, edit, delete, create file/folder |
-| `POST /upload` | Multipart file upload |
-| `POST /rename` | Rename file or folder |
-| `POST /edit` | Save file content |
-| `POST /cm` | Send CLI command (fire-and-forget) |
-| `GET /wifi` | Update WebUI credentials |
-| `GET /reboot` | Reboot device |
-| `GET /getscreen` | Raw TFT draw log (Navigator preview) |
-
-## Troubleshooting
-
-### `RNCWebViewModule could not be found` (Navigator screen)
-
-`react-native-webview` adds **native** code. After `npm install`, you must **reinstall the Android app** (not only reload JS in Metro):
-
-```bash
-cd android && ./gradlew clean && cd .. && npx react-native run-android
-```
-
-Until you do, the Navigator tab shows in-app instructions instead of crashing.
-
-### `./gradlew clean` fails: `GLOB mismatch` / `react-native-document-picker` / missing `codegen/jni`
-
-After removing or swapping a native module, **old CMake/Ninja state** under `android/app/.cxx` can still reference deleted paths (e.g. `node_modules/react-native-document-picker/...`). `clean` then tries to reconfigure CMake and errors.
-
-**Fix:** delete native/build outputs, then build (skip `clean` if it keeps failing):
-
-```bash
-rm -rf android/app/.cxx android/app/build android/build
-cd android && ./gradlew assembleDebug
-# or: cd .. && npx react-native run-android
-```
+| Method | Endpoint | Purpose |
+|---|---|---|
+| `POST` | `/login` | Authenticate and obtain `BRUCESESSION` cookie |
+| `GET` | `/logout` | End current session |
+| `GET` | `/systeminfo` | Read firmware/system/storage info |
+| `GET` | `/listfiles` | List files and folders (`fs`, `folder`) |
+| `GET` | `/file?action=edit` | Fetch text file content |
+| `GET` | `/file?action=download` | Download a file |
+| `GET` | `/file?action=delete` | Delete file/folder |
+| `GET` | `/file?action=create` | Create folder |
+| `GET` | `/file?action=createfile` | Create file |
+| `POST` | `/upload` | Upload file (multipart) |
+| `POST` | `/rename` | Rename file/folder (multipart) |
+| `POST` | `/edit` | Save file content (multipart) |
+| `POST` | `/cm` | Send terminal/CLI command |
+| `GET` | `/wifi` | Update WebUI credentials (`usr`, `pwd`) |
+| `GET` | `/reboot` | Reboot device |
+| `GET` | `/getscreen` | Fetch TFT draw stream for Navigator |
 
 ## Project Structure
 
-```
-src/
-├── services/api.ts          # Axios instance, cookie interceptor, all API calls
-├── types/index.ts           # Shared TypeScript interfaces
-├── navigation/AppNavigator  # Stack navigator + auth state
-├── screens/
-│   ├── LoginScreen.tsx
-│   ├── DashboardScreen.tsx
-│   ├── FileExplorerScreen.tsx
-│   ├── FileEditorScreen.tsx
-│   ├── TerminalScreen.tsx
-│   ├── NavigatorScreen.tsx   # Loads WebView only if native module is present
-│   ├── NavigatorWebCanvas.tsx
-│   └── SettingsScreen.tsx
-├── components/
-│   ├── FileItem.tsx
-│   ├── StorageBar.tsx
-│   ├── QuickAction.tsx
-│   └── CommandChip.tsx
-├── hooks/useAuth.ts
-└── utils/
-    ├── constants.ts         # Colors, storage keys, executable extension map
-    ├── fileHelpers.ts       # /listfiles parser, path helpers
-    └── vibrate.ts           # Safe vibration wrapper
+```text
+.
+├── App.tsx
+├── src/
+│   ├── components/
+│   │   ├── CommandChip.tsx
+│   │   ├── FileItem.tsx
+│   │   ├── PromptModal.tsx
+│   │   ├── QuickAction.tsx
+│   │   └── StorageBar.tsx
+│   ├── hooks/
+│   │   └── useAuth.ts
+│   ├── navigation/
+│   │   └── AppNavigator.tsx
+│   ├── screens/
+│   │   ├── DashboardScreen.tsx
+│   │   ├── FileEditorScreen.tsx
+│   │   ├── FileExplorerScreen.tsx
+│   │   ├── LoginScreen.tsx
+│   │   ├── NavigatorScreen.tsx
+│   │   ├── NavigatorWebCanvas.tsx
+│   │   ├── SettingsScreen.tsx
+│   │   └── TerminalScreen.tsx
+│   ├── services/
+│   │   └── api.ts
+│   ├── types/
+│   │   └── index.ts
+│   └── utils/
+│       ├── constants.ts
+│       ├── fileHelpers.ts
+│       └── vibrate.ts
+├── android/
+├── ios/
+└── __tests__/
 ```
 
 ## License
