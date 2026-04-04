@@ -17,6 +17,8 @@ import { RootStackParamList } from '../types';
 import { updateCredentials, rebootDevice, getSystemInfo } from '../services/api';
 import { useAuth } from '../contexts/AuthContext';
 import { COLORS } from '../utils/constants';
+import { ThemeModeSelector } from '../components/ThemeModeSelector';
+import { useThemeMode } from '../contexts/ThemeContext';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
 
 // App version sourced from package.json at bundle time
@@ -28,6 +30,7 @@ type Props = NativeStackScreenProps<RootStackParamList, 'Settings'>;
 export function SettingsScreen({ navigation: _navigation }: Props) {
   const insets = useSafeAreaInsets();
   const { logout } = useAuth();
+  const { themePreference, resolvedTheme, setThemePreference } = useThemeMode();
 
   const [newUsername, setNewUsername] = useState('');
   const [newPassword, setNewPassword] = useState('');
@@ -144,6 +147,19 @@ export function SettingsScreen({ navigation: _navigation }: Props) {
           onPress={handleReboot}
           danger
         />
+      </View>
+
+      {/* Appearance */}
+      <SectionHeader title="APPEARANCE" icon="theme-light-dark" />
+      <View style={styles.card}>
+        <Text style={styles.cardNote}>Choose your theme preference.</Text>
+        <ThemeModeSelector
+          value={themePreference}
+          onChange={(next) => {
+            void setThemePreference(next);
+          }}
+        />
+        <Text style={styles.modeHint}>Currently active: {resolvedTheme === 'dark' ? 'Dark' : 'Light'}</Text>
       </View>
 
       {/* Session */}
@@ -303,6 +319,12 @@ const styles = StyleSheet.create({
     color: COLORS.textMuted,
     fontSize: 12,
     marginTop: 2,
+  },
+  modeHint: {
+    color: COLORS.textMuted,
+    fontSize: 12,
+    marginHorizontal: 14,
+    marginBottom: 14,
   },
   dangerText: {
     color: COLORS.error,

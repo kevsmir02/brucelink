@@ -9,6 +9,7 @@ and this project follows Semantic Versioning.
 
 ### Changed
 - 2026-04-05 4355e72 chore: add changelog automation and release tooling
+- 2026-04-05 10ddc99 feat(theme): add theme mode settings and update accent color
 <!-- AUTO-CHANGELOG-ENTRIES -->
 
 ## [1.0.0] - 2026-04-05

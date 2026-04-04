@@ -1,35 +1,64 @@
-import { THEME_TOKENS } from '../theme/tokens';
+import { THEME_TOKENS, type ThemeMode } from '../theme/tokens';
 
-const lightTheme = THEME_TOKENS.light;
+export type ThemePreference = 'light' | 'dark' | 'system';
+
+function toPalette(mode: ThemeMode) {
+  const theme = THEME_TOKENS[mode];
+  return {
+    background: theme.colors.background,
+    surface: theme.colors.surface,
+    surfaceAlt: theme.colors.surfaceAlt,
+    primary: theme.colors.primary,
+    primaryDim: theme.colors.primaryStrong,
+    accent: theme.colors.accent,
+    text: theme.colors.text,
+    textMuted: theme.colors.textMuted,
+    error: theme.colors.error,
+    errorDim: theme.colors.error,
+    border: theme.colors.border,
+    borderLight: theme.colors.borderStrong,
+    warning: theme.colors.warning,
+    overlay: theme.colors.overlay,
+  };
+}
+
+export function resolveThemeMode(
+  preference: ThemePreference,
+  systemScheme: 'light' | 'dark' | 'unspecified' | null,
+): ThemeMode {
+  if (preference === 'system') {
+    return systemScheme === 'light' ? 'light' : 'dark';
+  }
+  return preference;
+}
+
+let activeTheme: ThemeMode = 'dark';
 
 export const COLORS = {
-  background: lightTheme.colors.background,
-  surface: lightTheme.colors.surface,
-  surfaceAlt: lightTheme.colors.surfaceAlt,
-  primary: lightTheme.colors.primary,
-  primaryDim: lightTheme.colors.primaryStrong,
-  accent: lightTheme.colors.accent,
-  text: lightTheme.colors.text,
-  textMuted: lightTheme.colors.textMuted,
-  error: lightTheme.colors.error,
-  errorDim: lightTheme.colors.error,
-  border: lightTheme.colors.border,
-  borderLight: lightTheme.colors.borderStrong,
-  warning: lightTheme.colors.warning,
-  overlay: lightTheme.colors.overlay,
+  ...toPalette(activeTheme),
 };
 
+export function applyThemeMode(mode: ThemeMode) {
+  activeTheme = mode;
+  Object.assign(COLORS, toPalette(mode));
+}
+
+export function getActiveThemeMode(): ThemeMode {
+  return activeTheme;
+}
+
 export const FONTS = {
-  mono: lightTheme.typography.mono,
-  monoSize: lightTheme.typography.monoSize,
-  regular: lightTheme.typography.regular,
+  mono: THEME_TOKENS.light.typography.mono,
+  monoSize: THEME_TOKENS.light.typography.monoSize,
+  regular: THEME_TOKENS.light.typography.regular,
   /** Press Start 2P (Android: linked via react-native.config.js + react-native-asset) */
-  pixel: lightTheme.typography.pixel,
+  pixel: THEME_TOKENS.light.typography.pixel,
 };
 
 export const STORAGE_KEYS = {
   session: '@bruce_session',
   baseUrl: '@bruce_base_url',
+  themeMode: '@bruce_theme_mode',
   lastFs: '@bruce_last_fs',
   lastPath: '@bruce_last_path',
 };
