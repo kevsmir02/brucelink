@@ -1,25 +1,30 @@
+import { THEME_TOKENS } from '../theme/tokens';
+
+const lightTheme = THEME_TOKENS.light;
+
 export const COLORS = {
-  background: '#050505',
-  surface: '#0f0f0f',
-  surfaceAlt: '#141414',
-  primary: '#A855F7',
-  primaryDim: '#9333EA',
-  text: '#e0e0e0',
-  textMuted: '#888888',
-  error: '#ff4444',
-  errorDim: '#aa2222',
-  border: '#18181B',
-  borderLight: '#27272A',
-  warning: '#ffaa00',
-  overlay: 'rgba(0,0,0,0.7)',
+  background: lightTheme.colors.background,
+  surface: lightTheme.colors.surface,
+  surfaceAlt: lightTheme.colors.surfaceAlt,
+  primary: lightTheme.colors.primary,
+  primaryDim: lightTheme.colors.primaryStrong,
+  accent: lightTheme.colors.accent,
+  text: lightTheme.colors.text,
+  textMuted: lightTheme.colors.textMuted,
+  error: lightTheme.colors.error,
+  errorDim: lightTheme.colors.error,
+  border: lightTheme.colors.border,
+  borderLight: lightTheme.colors.borderStrong,
+  warning: lightTheme.colors.warning,
+  overlay: lightTheme.colors.overlay,
 };
 
 export const FONTS = {
-  mono: 'Courier New',
-  monoSize: 13,
-  regular: undefined, // system default
+  mono: lightTheme.typography.mono,
+  monoSize: lightTheme.typography.monoSize,
+  regular: lightTheme.typography.regular,
   /** Press Start 2P (Android: linked via react-native.config.js + react-native-asset) */
-  pixel: 'PressStart2P-Regular',
+  pixel: lightTheme.typography.pixel,
 };
 
 export const STORAGE_KEYS = {

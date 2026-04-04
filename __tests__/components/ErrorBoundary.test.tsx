@@ -14,7 +14,7 @@ describe('ErrorBoundary', () => {
   });
 
   it('renders fallback UI when a child throws', () => {
-    function Bomb() {
+    function Bomb(): never {
       throw new Error('boom');
     }
 
