@@ -8,7 +8,7 @@ interface Props {
   onPress: () => void;
 }
 
-export const CommandChip: React.FC<Props> = ({ label, onPress }) => {
+export function CommandChip({ label, onPress }: Props) {
   const handlePress = () => {
     vibrate(20);
     onPress();
@@ -19,7 +19,7 @@ export const CommandChip: React.FC<Props> = ({ label, onPress }) => {
       <Text style={styles.label}>{label}</Text>
     </TouchableOpacity>
   );
-};
+}
 
 const styles = StyleSheet.create({
   chip: {

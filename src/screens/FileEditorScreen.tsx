@@ -14,9 +14,10 @@ import { NativeStackScreenProps } from '@react-navigation/native-stack';
 import Icon from 'react-native-vector-icons/MaterialCommunityIcons';
 
 import { RootStackParamList } from '../types';
-import { getFileContent, saveFileContent, sendCommand } from '../services/api';
+import { saveFileContent, sendCommand } from '../services/api';
 import { COLORS, FONTS } from '../utils/constants';
 import { isExecutable, getExecuteCommand, getFileExtension } from '../utils/fileHelpers';
+import { useFileContent } from '../hooks/useFileContent';
 
 type Props = NativeStackScreenProps<RootStackParamList, 'FileEditor'>;
 
@@ -65,27 +66,22 @@ export function FileEditorScreen({ navigation, route }: Props) {
   const ext = getFileExtension(fileName);
   const executable = isExecutable(fileName);
 
+  // Load file content via React Query — handles loading/error states
+  const { content: originalContent, isLoading, isError } = useFileContent(fs, filePath);
+
+  // Local editable copy, initialised from the query result
   const [content, setContent] = useState('');
-  const [original, setOriginal] = useState('');
-  const [loading, setLoading] = useState(true);
   const [saving, setSaving] = useState(false);
-  const [error, setError] = useState<string | null>(null);
-  const isDirty = content !== original;
   const inputRef = useRef<TextInput>(null);
 
+  // Sync local state when query data arrives
   useEffect(() => {
-    (async () => {
-      try {
-        const text = await getFileContent(fs, filePath);
-        setContent(text);
-        setOriginal(text);
-      } catch {
-        setError('Could not load file content.');
-      } finally {
-        setLoading(false);
-      }
-    })();
-  }, [fs, filePath]);
+    if (originalContent !== undefined) {
+      setContent(originalContent);
+    }
+  }, [originalContent]);
+
+  const isDirty = content !== originalContent;
 
   const executeFile = useCallback(async () => {
     const cmd = getExecuteCommand(filePath);
@@ -102,7 +98,6 @@ export function FileEditorScreen({ navigation, route }: Props) {
     setSaving(true);
     try {
       await saveFileContent(fs, filePath, content);
-      setOriginal(content);
       ToastAndroid.show('Saved', ToastAndroid.SHORT);
     } catch (err: any) {
       Alert.alert('Save Failed', err.message ?? 'Unknown error');
@@ -166,7 +161,7 @@ export function FileEditorScreen({ navigation, route }: Props) {
     return unsubscribe;
   }, [navigation, isDirty]);
 
-  if (loading) {
+  if (isLoading) {
     return (
       <View style={styles.center}>
         <ActivityIndicator color={COLORS.primary} size="large" />
@@ -175,11 +170,11 @@ export function FileEditorScreen({ navigation, route }: Props) {
     );
   }
 
-  if (error) {
+  if (isError) {
     return (
       <View style={styles.center}>
         <Icon name="alert-circle-outline" size={48} color={COLORS.error} />
-        <Text style={styles.errorText}>{error}</Text>
+        <Text style={styles.errorText}>Could not load file content.</Text>
       </View>
     );
   }

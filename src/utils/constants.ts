@@ -33,14 +33,16 @@ export const DEFAULT_BASE_URL = 'http://172.0.0.1';
 export const DEFAULT_USERNAME = 'admin';
 export const DEFAULT_PASSWORD = 'admin';
 
+// Maps file extensions to the CLI command sent to /cm to execute them.
+// All strings verified against /src/core/serial_commands/*.cpp in the firmware repo.
 export const EXECUTABLE_EXTENSIONS: Record<string, (path: string) => string> = {
-  '.ir': path => `ir tx_from_file "${path}"`,
-  '.sub': path => `subghz tx_from_file "${path}"`,
-  '.js': path => `js run_from_file "${path}"`,
-  '.bjs': path => `js run_from_file "${path}"`,
-  '.txt': path => `badusb run_from_file "${path}"`,
-  '.mp3': path => `play "${path}"`,
-  '.wav': path => `play "${path}"`,
+  '.ir':  path => `ir tx_from_file "${path}"`,      // ir_commands.cpp: createIrTxFileCommand
+  '.sub': path => `subghz tx_from_file "${path}"`, // rf_commands.cpp: createRfTxFileCommand
+  '.js':  path => `js run_from_file "${path}"`,    // interpreter_commands.cpp
+  '.bjs': path => `js run_from_file "${path}"`,    // interpreter_commands.cpp
+  '.txt': path => `badusb run_from_file "${path}"`, // badusb_commands.cpp
+  '.mp3': path => `play "${path}"`,                // sound_commands.cpp: createSoundCommands
+  '.wav': path => `play "${path}"`,                // sound_commands.cpp: createSoundCommands
 };
 
 export const TEXT_EXTENSIONS = [

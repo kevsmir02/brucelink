@@ -11,7 +11,7 @@ interface Props {
   danger?: boolean;
 }
 
-export const QuickAction: React.FC<Props> = ({ icon, label, onPress, danger }) => {
+export function QuickAction({ icon, label, onPress, danger }: Props) {
   const handlePress = () => {
     vibrate(30);
     onPress();
@@ -26,7 +26,7 @@ export const QuickAction: React.FC<Props> = ({ icon, label, onPress, danger }) =
       <Text style={[styles.label, danger && styles.labelDanger]}>{label}</Text>
     </TouchableOpacity>
   );
-};
+}
 
 const styles = StyleSheet.create({
   container: {

@@ -6,12 +6,12 @@ import { FileEntry, FileSystem, SystemInfo } from '../types';
 import { DEFAULT_BASE_URL, STORAGE_KEYS } from '../utils/constants';
 import { parseFileList } from '../utils/fileHelpers';
 
-// Navigation callback — set by AppNavigator after mount so the interceptor
-// can redirect to Login on 401 without importing navigation directly.
-let _navigateToLogin: (() => void) | null = null;
+// Unauthorized handler — registered by AuthProvider so the Axios 401
+// interceptor can clear auth state without a global navigation ref.
+let _onUnauthorized: (() => void) | null = null;
 
-export function setNavigateToLogin(fn: () => void) {
-  _navigateToLogin = fn;
+export function registerUnauthorizedHandler(fn: () => void) {
+  _onUnauthorized = fn;
 }
 
 // ---------------------------------------------------------------------------
@@ -58,8 +58,8 @@ apiClient.interceptors.request.use(
 apiClient.interceptors.response.use(
   response => response,
   error => {
-    if (error.response?.status === 401 && _navigateToLogin) {
-      _navigateToLogin?.();
+    if (error.response?.status === 401 && _onUnauthorized) {
+      _onUnauthorized();
     }
     return Promise.reject(error);
   },
@@ -405,51 +405,28 @@ export async function renameFile(
 // Command interface
 // ---------------------------------------------------------------------------
 export async function sendCommand(command: string): Promise<string> {
-  // Match Web UI: POST /cm, multipart field "cmnd" (see firmware embedded_resources/web_interface/index.js).
-  // Do not use axios here: on React Native, axios often mishandles FormData (wrong Content-Type /
-  // serialization), which breaks /cm entirely ("Network error") for Terminal and Navigator D-pad.
   const trimmed = command.trim();
-  const form = new FormData();
-  form.append('cmnd', trimmed);
+  const body = `cmnd=${encodeURIComponent(trimmed)}`;
 
-  const token = await AsyncStorage.getItem(STORAGE_KEYS.session);
-  const url = `${getBaseUrl()}/cm`;
-  const headers: Record<string, string> = {};
-  if (token) {
-    headers.Cookie = `BRUCESESSION=${token}`;
-  }
-
-  const controller = new AbortController();
-  const timeoutMs = 15000;
-  const timeoutId = setTimeout(() => controller.abort(), timeoutMs);
-
-  let res: Response;
   try {
-    res = await fetch(url, {
-      method: 'POST',
-      headers,
-      body: form,
-      signal: controller.signal,
+    // Send as x-www-form-urlencoded via our configured apiClient.
+    // ESPAsyncWebServer accepts this perfectly in hasArg()
+    const { data } = await apiClient.post<string>('/cm', body, {
+      headers: { 'Content-Type': 'application/x-www-form-urlencoded' },
+      responseType: 'text',
+      timeout: 15000,
     });
-  } catch (e: any) {
-    const msg = e?.name === 'AbortError' ? `Request timed out after ${timeoutMs / 1000}s` : e?.message;
-    throw new Error(msg ?? 'Network error');
-  } finally {
-    clearTimeout(timeoutId);
+    return data as unknown as string;
+  } catch (err: any) {
+    if (err.response) {
+      if (err.response.status === 401) {
+        _onUnauthorized?.();
+        throw new Error('Unauthorized access (401)');
+      }
+      throw new Error(err.response.data || `Request failed with status ${err.response.status}`);
+    }
+    throw new Error(err.message ?? 'Network error');
   }
-
-  const text = await res.text();
-
-  if (res.status === 401) {
-    _navigateToLogin?.();
-    throw new Error('Unauthorized access (401)');
-  }
-
-  if (res.status >= 500) {
-    throw new Error(text || `Request failed with status ${res.status}`);
-  }
-
-  return text;
 }
 
 // ---------------------------------------------------------------------------
@@ -490,4 +467,16 @@ export async function updateCredentials(username: string, password: string): Pro
     responseType: 'text',
   });
   return data as unknown as string;
+}
+
+// ---------------------------------------------------------------------------
+// URL helpers (encapsulate endpoint shape — screens must not build URLs)
+// ---------------------------------------------------------------------------
+
+/**
+ * Builds the authenticated URL for previewing an image file from device storage.
+ * Keeps endpoint shape out of screen components.
+ */
+export function getImagePreviewUrl(fs: FileSystem, filePath: string): string {
+  return `${_baseUrl}/file?fs=${fs}&name=${encodeURIComponent(filePath)}&action=image`;
 }

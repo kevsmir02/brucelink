@@ -1,4 +1,4 @@
-import React, { useState, useCallback, useLayoutEffect, useEffect } from 'react';
+import React, { useState, useLayoutEffect, useEffect } from 'react';
 import {
   View,
   Text,
@@ -9,15 +9,10 @@ import {
   ActivityIndicator,
   RefreshControl,
   ScrollView,
-  Modal,
   ToastAndroid,
-  Image,
-  Animated,
 } from 'react-native';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
-import { vibrate } from '../utils/vibrate';
 import { NativeStackScreenProps } from '@react-navigation/native-stack';
-import { useFocusEffect } from '@react-navigation/native';
 import AsyncStorage from '@react-native-async-storage/async-storage';
 import Icon from 'react-native-vector-icons/MaterialCommunityIcons';
 import {
@@ -29,27 +24,25 @@ import {
 
 import { RootStackParamList, FileEntry, FileSystem } from '../types';
 import {
-  listFiles,
-  deleteFile,
-  createFolder,
-  createFile,
-  renameFile,
   downloadFile,
-  uploadFile,
   sendCommand,
-  getBaseUrl,
+  getImagePreviewUrl,
   getSessionToken,
 } from '../services/api';
-import { FileItem } from '../components/FileItem';
+import { useFileList } from '../hooks/useFileList';
 import { PromptModal } from '../components/PromptModal';
 import { COLORS, STORAGE_KEYS } from '../utils/constants';
 import {
   parentPath,
   formatBreadcrumbs,
-  isExecutable,
   getExecuteCommand,
   isTextFile,
 } from '../utils/fileHelpers';
+import { FsToggle } from '../components/FsToggle';
+import { ExplorerFab } from '../components/ExplorerFab';
+import { FileActionSheet } from '../components/FileActionSheet';
+import { ImagePreviewModal } from '../components/ImagePreviewModal';
+import { FileRowWithDelete } from '../components/FileRowWithDelete';
 
 type Props = NativeStackScreenProps<RootStackParamList, 'FileExplorer'>;
 
@@ -92,16 +85,7 @@ function ExplorerListHeader({
         </View>
       )}
 
-      <View style={styles.fsToggle}>
-        {(['SD', 'LittleFS'] as FileSystem[]).map(f => (
-          <TouchableOpacity
-            key={f}
-            style={[styles.fsTab, fs === f && styles.fsTabActive]}
-            onPress={() => onSwitchFs(f)}>
-            <Text style={[styles.fsTabText, fs === f && styles.fsTabTextActive]}>{f}</Text>
-          </TouchableOpacity>
-        ))}
-      </View>
+      <FsToggle fs={fs} onSwitchFs={onSwitchFs} />
 
       <ScrollView horizontal showsHorizontalScrollIndicator={false} style={styles.breadcrumbScroll}>
         <View style={styles.breadcrumbs}>
@@ -138,11 +122,21 @@ export function FileExplorerScreen({ navigation, route }: Props) {
   const insets = useSafeAreaInsets();
   const [fs, setFs] = useState<FileSystem>(route.params?.fs ?? 'SD');
   const [currentPath, setCurrentPath] = useState(route.params?.folder ?? '/');
-  const [entries, setEntries] = useState<FileEntry[]>([]);
-  const [loading, setLoading] = useState(false);
-  const [refreshing, setRefreshing] = useState(false);
-  const [error, setError] = useState<string | null>(null);
-  const [disconnected, setDisconnected] = useState(false);
+  const {
+    entries,
+    isLoading: loading,
+    isRefetching: refreshing,
+    isDisconnected: disconnected,
+    error,
+    refetch,
+    deleteFile: doDeleteFile,
+    renameFile: doRenameFile,
+    createFolder: doCreateFolder,
+    createFile: doCreateFile,
+    uploadFile: doUploadFile,
+  } = useFileList(fs, currentPath);
+
+  // UI-only state — has no caching need, lives locally in the screen
   const [selectedEntry, setSelectedEntry] = useState<ActionSheetEntry>(null);
   const [actionSheetVisible, setActionSheetVisible] = useState(false);
   const [fabOpen, setFabOpen] = useState(false);
@@ -184,35 +178,6 @@ export function FileExplorerScreen({ navigation, route }: Props) {
   // eslint-disable-next-line react-hooks/exhaustive-deps
   }, []);
 
-  const loadFiles = useCallback(async (targetFs: FileSystem, path: string) => {
-    setError(null);
-    setDisconnected(false);
-    setLoading(true);
-    try {
-      const data = await listFiles(targetFs, path);
-      setEntries(data);
-      await AsyncStorage.setItem(STORAGE_KEYS.lastFs, targetFs);
-      await AsyncStorage.setItem(STORAGE_KEYS.lastPath, path);
-    } catch (err: any) {
-      const isNetworkError =
-        err.code === 'ECONNABORTED' ||
-        err.message?.includes('Network Error') ||
-        err.message?.includes('unreachable');
-      if (isNetworkError) {
-        setDisconnected(true);
-      }
-      setError('Failed to list files. Check connection to BruceNet.');
-    } finally {
-      setLoading(false);
-    }
-  }, []);
-
-  useFocusEffect(
-    useCallback(() => {
-      loadFiles(fs, currentPath);
-    }, [fs, currentPath, loadFiles]),
-  );
-
   useLayoutEffect(() => {
     navigation.setOptions({
       title: currentPath === '/' ? `${fs} /` : currentPath.split('/').pop(),
@@ -226,11 +191,6 @@ export function FileExplorerScreen({ navigation, route }: Props) {
   const switchFs = (newFs: FileSystem) => {
     setFs(newFs);
     setCurrentPath('/');
-  };
-  const onRefresh = async () => {
-    setRefreshing(true);
-    await loadFiles(fs, currentPath);
-    setRefreshing(false);
   };
 
   const openActionSheet = (entry: FileEntry) => {
@@ -288,7 +248,7 @@ export function FileExplorerScreen({ navigation, route }: Props) {
 
   const handlePreviewImage = async (entry: FileEntry) => {
     closeActionSheet();
-    const url = `${getBaseUrl()}/file?fs=${fs}&name=${encodeURIComponent(entry.path)}&action=image`;
+    const url = getImagePreviewUrl(fs, entry.path);
     const token = await getSessionToken();
     setPreviewUri(url);
     setPreviewToken(token);
@@ -306,8 +266,7 @@ export function FileExplorerScreen({ navigation, route }: Props) {
         hidePrompt();
         if (newName === entry.name) return;
         try {
-          await renameFile(fs, entry.path, newName);
-          loadFiles(fs, currentPath);
+          await doRenameFile({ filePath: entry.path, newName });
         } catch {
           Alert.alert('Error', 'Failed to rename');
         }
@@ -327,8 +286,7 @@ export function FileExplorerScreen({ navigation, route }: Props) {
           style: 'destructive',
           onPress: async () => {
             try {
-              await deleteFile(fs, entry.path);
-              loadFiles(fs, currentPath);
+              await doDeleteFile(entry.path);
               ToastAndroid.show('Deleted', ToastAndroid.SHORT);
             } catch {
               Alert.alert('Error', 'Failed to delete');
@@ -354,10 +312,9 @@ export function FileExplorerScreen({ navigation, route }: Props) {
         'upload.bin';
       const name = result.name ?? fromUri;
       setUploadProgress(0);
-      await uploadFile(fs, currentPath, uri, name, (pct) => setUploadProgress(pct));
+      await doUploadFile({ fileUri: uri, fileName: name, onProgress: (pct) => setUploadProgress(pct) });
       setUploadProgress(null);
       ToastAndroid.show('Upload complete', ToastAndroid.SHORT);
-      loadFiles(fs, currentPath);
     } catch (err: unknown) {
       setUploadProgress(null);
       if (
@@ -381,8 +338,7 @@ export function FileExplorerScreen({ navigation, route }: Props) {
         hidePrompt();
         const path = currentPath === '/' ? `/${name}` : `${currentPath}/${name}`;
         try {
-          await createFolder(fs, path);
-          loadFiles(fs, currentPath);
+          await doCreateFolder(path);
         } catch {
           Alert.alert('Error', 'Failed to create folder');
         }
@@ -400,8 +356,7 @@ export function FileExplorerScreen({ navigation, route }: Props) {
         hidePrompt();
         const path = currentPath === '/' ? `/${name}` : `${currentPath}/${name}`;
         try {
-          await createFile(fs, path);
-          loadFiles(fs, currentPath);
+          await doCreateFile(path);
         } catch {
           Alert.alert('Error', 'Failed to create file');
         }
@@ -417,8 +372,7 @@ export function FileExplorerScreen({ navigation, route }: Props) {
         style: 'destructive',
         onPress: async () => {
           try {
-            await deleteFile(fs, entry.path);
-            loadFiles(fs, currentPath);
+            await doDeleteFile(entry.path);
             ToastAndroid.show('Deleted', ToastAndroid.SHORT);
           } catch {
             Alert.alert('Error', 'Failed to delete');
@@ -498,7 +452,7 @@ export function FileExplorerScreen({ navigation, route }: Props) {
         refreshControl={
           <RefreshControl
             refreshing={refreshing}
-            onRefresh={onRefresh}
+            onRefresh={refetch}
             tintColor={COLORS.primary}
             colors={[COLORS.primary]}
           />
@@ -506,95 +460,35 @@ export function FileExplorerScreen({ navigation, route }: Props) {
         style={styles.list}
       />
 
-      {/* FAB */}
-      <View style={[styles.fab, { bottom: Math.max(insets.bottom, 12) + 12 }]}>
-        {fabOpen && (
-          <View style={styles.fabMenu}>
-            <TouchableOpacity style={styles.fabItem} onPress={handleUploadFile}>
-              <Icon name="upload-outline" size={20} color={COLORS.primary} />
-              <Text style={styles.fabItemText}>Upload File</Text>
-            </TouchableOpacity>
-            <TouchableOpacity style={styles.fabItem} onPress={handleCreateFolder}>
-              <Icon name="folder-plus-outline" size={20} color={COLORS.primary} />
-              <Text style={styles.fabItemText}>New Folder</Text>
-            </TouchableOpacity>
-            <TouchableOpacity style={styles.fabItem} onPress={handleCreateFile}>
-              <Icon name="file-plus-outline" size={20} color={COLORS.primary} />
-              <Text style={styles.fabItemText}>New File</Text>
-            </TouchableOpacity>
-          </View>
-        )}
-        <TouchableOpacity
-          style={styles.fabBtn}
-          onPress={() => { vibrate(20); setFabOpen(o => !o); }}
-          activeOpacity={0.85}>
-          <Icon name={fabOpen ? 'close' : 'plus'} size={26} color={COLORS.background} />
-        </TouchableOpacity>
-      </View>
+      <ExplorerFab
+        open={fabOpen}
+        bottom={Math.max(insets.bottom, 12) + 12}
+        onToggle={() => setFabOpen(current => !current)}
+        onUploadFile={handleUploadFile}
+        onCreateFolder={handleCreateFolder}
+        onCreateFile={handleCreateFile}
+      />
 
-      {/* Action Sheet Modal */}
-      <Modal
+      <FileActionSheet
         visible={actionSheetVisible}
-        transparent
-        animationType="slide"
-        onRequestClose={closeActionSheet}>
-        <TouchableOpacity style={styles.modalOverlay} onPress={closeActionSheet} activeOpacity={1}>
-          <View style={[styles.actionSheet, { paddingBottom: Math.max(insets.bottom, 16) + 16 }]}>
-            <View style={styles.actionHandle} />
-            <Text style={styles.actionTitle} numberOfLines={1}>
-              {selectedEntry?.name}
-            </Text>
-            <Text style={styles.actionSubtitle}>
-              {selectedEntry?.size || selectedEntry?.type}
-            </Text>
+        entry={selectedEntry}
+        bottomInset={insets.bottom}
+        onClose={closeActionSheet}
+        onDownload={handleDownload}
+        onEdit={handleEdit}
+        onPreviewImage={handlePreviewImage}
+        onRun={handleRun}
+        onRename={handleRename}
+        onDelete={handleDelete}
+        isImageFile={isImage}
+      />
 
-            {selectedEntry?.type === 'file' && (
-              <>
-                <ActionRow icon="download-outline" label="Download" onPress={() => selectedEntry && handleDownload(selectedEntry)} />
-                <ActionRow icon="pencil-outline" label="Edit" onPress={() => selectedEntry && handleEdit(selectedEntry)} />
-                {selectedEntry && isImage(selectedEntry.name) && (
-                  <ActionRow icon="image-outline" label="Preview Image" onPress={() => selectedEntry && handlePreviewImage(selectedEntry)} />
-                )}
-                {selectedEntry && isExecutable(selectedEntry.name) && (
-                  <ActionRow icon="play-outline" label="Run" accent onPress={() => selectedEntry && handleRun(selectedEntry)} />
-                )}
-              </>
-            )}
-            <ActionRow icon="form-textbox" label="Rename" onPress={() => selectedEntry && handleRename(selectedEntry)} />
-            <ActionRow icon="delete-outline" label="Delete" danger onPress={() => selectedEntry && handleDelete(selectedEntry)} />
-
-            <TouchableOpacity style={styles.cancelBtn} onPress={closeActionSheet}>
-              <Text style={styles.cancelText}>Cancel</Text>
-            </TouchableOpacity>
-          </View>
-        </TouchableOpacity>
-      </Modal>
-
-      {/* Image Preview Modal */}
-      <Modal
+      <ImagePreviewModal
         visible={previewVisible}
-        transparent
-        animationType="fade"
-        onRequestClose={() => setPreviewVisible(false)}>
-        <TouchableOpacity
-          style={styles.previewOverlay}
-          activeOpacity={1}
-          onPress={() => setPreviewVisible(false)}>
-          {previewUri && (
-            <Image
-              source={{
-                uri: previewUri,
-                headers: previewToken
-                  ? { Cookie: `BRUCESESSION=${previewToken}` }
-                  : undefined,
-              }}
-              style={styles.previewImage}
-              resizeMode="contain"
-            />
-          )}
-          <Text style={styles.previewHint}>Tap to close</Text>
-        </TouchableOpacity>
-      </Modal>
+        previewUri={previewUri}
+        previewToken={previewToken}
+        onClose={() => setPreviewVisible(false)}
+      />
 
       {/* Prompt modal (Alert.prompt is not available on Android) */}
       {promptConfig && (
@@ -609,96 +503,6 @@ export function FileExplorerScreen({ navigation, route }: Props) {
         />
       )}
     </View>
-  );
-}
-
-// ----- File row with inline delete button -----
-// Replacing the old SwipeableFileItem whose long-press-to-swipe gesture
-// conflicted with the FileItem's own long-press (action sheet).
-// Now: row long-press → action sheet (single responsibility).
-// Quick delete is accessible via the action sheet "Delete" row, or via the
-// trash icon that slides in when the row is swiped using Animated.
-function FileRowWithDelete({
-  entry,
-  onPress,
-  onLongPress,
-  onDelete,
-}: {
-  entry: FileEntry;
-  onPress: () => void;
-  onLongPress: () => void;
-  onDelete: () => void;
-}) {
-  const translateX = React.useRef(new Animated.Value(0)).current;
-  const [revealed, setRevealed] = React.useState(false);
-
-  const reveal = () => {
-    Animated.spring(translateX, {
-      toValue: revealed ? 0 : -72,
-      useNativeDriver: true,
-      bounciness: 4,
-    }).start();
-    setRevealed(r => !r);
-  };
-
-  // Close the revealed state when the user taps elsewhere (via onPress)
-  const handlePress = () => {
-    if (revealed) {
-      reveal();
-    } else {
-      onPress();
-    }
-  };
-
-  return (
-    <View style={styles.swipeRow}>
-      {/* Delete button sits behind, revealed by the slide */}
-      <View style={styles.swipeAction}>
-        <TouchableOpacity
-          style={styles.swipeDeleteBtn}
-          onPress={() => { reveal(); onDelete(); }}>
-          <Icon name="delete-outline" size={20} color="#fff" />
-        </TouchableOpacity>
-      </View>
-
-      {/* Slide handle + file row */}
-      <Animated.View style={[styles.swipeContent, { transform: [{ translateX }] }]}>
-        {/* Swipe handle — separate from the file row so long-press is unambiguous */}
-        <TouchableOpacity style={styles.swipeHandle} onPress={reveal} activeOpacity={0.6}>
-          <Icon name="drag-horizontal-variant" size={16} color={COLORS.border} />
-        </TouchableOpacity>
-        <View style={{ flex: 1 }}>
-          <FileItem entry={entry} onPress={handlePress} onLongPress={onLongPress} />
-        </View>
-      </Animated.View>
-    </View>
-  );
-}
-
-function ActionRow({
-  icon,
-  label,
-  onPress,
-  danger,
-  accent,
-}: {
-  icon: string;
-  label: string;
-  onPress: () => void;
-  danger?: boolean;
-  accent?: boolean;
-}) {
-  return (
-    <TouchableOpacity style={styles.actionRow} onPress={onPress} activeOpacity={0.7}>
-      <Icon
-        name={icon}
-        size={22}
-        color={danger ? COLORS.error : accent ? COLORS.primary : COLORS.text}
-      />
-      <Text style={[styles.actionRowText, danger && styles.dangerText, accent && styles.accentText]}>
-        {label}
-      </Text>
-    </TouchableOpacity>
   );
 }
 
@@ -732,32 +536,6 @@ const styles = StyleSheet.create({
     fontSize: 12,
     flex: 1,
     lineHeight: 16,
-  },
-  fsToggle: {
-    flexDirection: 'row',
-    margin: 16,
-    marginBottom: 8,
-    backgroundColor: COLORS.surface,
-    borderRadius: 10,
-    borderWidth: 1,
-    borderColor: COLORS.border,
-    overflow: 'hidden',
-  },
-  fsTab: {
-    flex: 1,
-    paddingVertical: 10,
-    alignItems: 'center',
-  },
-  fsTabActive: {
-    backgroundColor: COLORS.primary,
-  },
-  fsTabText: {
-    color: COLORS.textMuted,
-    fontWeight: '600',
-    fontSize: 14,
-  },
-  fsTabTextActive: {
-    color: COLORS.background,
   },
   breadcrumbScroll: {
     paddingHorizontal: 16,
@@ -850,161 +628,5 @@ const styles = StyleSheet.create({
     height: '100%',
     backgroundColor: COLORS.primary,
     borderRadius: 3,
-  },
-  // FAB
-  fab: {
-    position: 'absolute',
-    bottom: 24,
-    right: 20,
-    alignItems: 'flex-end',
-  },
-  fabBtn: {
-    width: 56,
-    height: 56,
-    borderRadius: 28,
-    backgroundColor: COLORS.primary,
-    alignItems: 'center',
-    justifyContent: 'center',
-    elevation: 6,
-    shadowColor: COLORS.primary,
-    shadowOffset: { width: 0, height: 2 },
-    shadowOpacity: 0.5,
-    shadowRadius: 6,
-  },
-  fabMenu: {
-    marginBottom: 12,
-    alignItems: 'flex-end',
-  },
-  fabItem: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    backgroundColor: COLORS.surface,
-    borderRadius: 8,
-    paddingHorizontal: 14,
-    paddingVertical: 10,
-    marginBottom: 8,
-    borderWidth: 1,
-    borderColor: COLORS.border,
-    elevation: 4,
-  },
-  fabItemText: {
-    color: COLORS.text,
-    marginLeft: 10,
-    fontSize: 14,
-  },
-  // Action sheet
-  modalOverlay: {
-    flex: 1,
-    backgroundColor: COLORS.overlay,
-    justifyContent: 'flex-end',
-  },
-  actionSheet: {
-    backgroundColor: COLORS.surface,
-    borderTopLeftRadius: 20,
-    borderTopRightRadius: 20,
-    paddingBottom: 32,
-    paddingTop: 12,
-    paddingHorizontal: 16,
-    borderTopWidth: 1,
-    borderTopColor: COLORS.border,
-  },
-  actionHandle: {
-    width: 40,
-    height: 4,
-    backgroundColor: COLORS.border,
-    borderRadius: 2,
-    alignSelf: 'center',
-    marginBottom: 16,
-  },
-  actionTitle: {
-    color: COLORS.text,
-    fontSize: 16,
-    fontWeight: '600',
-    marginBottom: 4,
-    fontFamily: 'Courier New',
-  },
-  actionSubtitle: {
-    color: COLORS.textMuted,
-    fontSize: 12,
-    marginBottom: 16,
-  },
-  actionRow: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    paddingVertical: 14,
-    borderTopWidth: 1,
-    borderTopColor: COLORS.border,
-  },
-  actionRowText: {
-    color: COLORS.text,
-    fontSize: 16,
-    marginLeft: 14,
-  },
-  dangerText: { color: COLORS.error },
-  accentText: { color: COLORS.primary },
-  cancelBtn: {
-    marginTop: 12,
-    backgroundColor: COLORS.background,
-    borderRadius: 10,
-    paddingVertical: 14,
-    alignItems: 'center',
-    borderWidth: 1,
-    borderColor: COLORS.border,
-  },
-  cancelText: {
-    color: COLORS.text,
-    fontSize: 15,
-    fontWeight: '600',
-  },
-  // Image preview
-  previewOverlay: {
-    flex: 1,
-    backgroundColor: 'rgba(0,0,0,0.92)',
-    alignItems: 'center',
-    justifyContent: 'center',
-  },
-  previewImage: {
-    width: '90%',
-    height: '80%',
-  },
-  previewHint: {
-    color: COLORS.textMuted,
-    marginTop: 16,
-    fontSize: 12,
-  },
-  // Swipe row
-  swipeRow: {
-    position: 'relative',
-    overflow: 'hidden',
-  },
-  swipeAction: {
-    position: 'absolute',
-    right: 0,
-    top: 0,
-    bottom: 0,
-    width: 72,
-    backgroundColor: COLORS.error,
-    alignItems: 'center',
-    justifyContent: 'center',
-  },
-  swipeDeleteBtn: {
-    flex: 1,
-    alignItems: 'center',
-    justifyContent: 'center',
-    width: 72,
-  },
-  swipeContent: {
-    flexDirection: 'row',
-    alignItems: 'stretch',
-    backgroundColor: COLORS.background,
-  },
-  swipeHandle: {
-    width: 24,
-    alignItems: 'center',
-    justifyContent: 'center',
-    paddingHorizontal: 4,
-    backgroundColor: COLORS.surface,
-    borderRightWidth: 1,
-    borderRightColor: COLORS.border,
   },
 });

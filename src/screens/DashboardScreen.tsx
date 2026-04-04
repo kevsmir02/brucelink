@@ -1,4 +1,4 @@
-import React, { useState, useCallback } from 'react';
+import React from 'react';
 import {
   View,
   Text,
@@ -10,9 +10,9 @@ import {
   ActivityIndicator,
 } from 'react-native';
 import { NativeStackScreenProps } from '@react-navigation/native-stack';
-import { useFocusEffect } from '@react-navigation/native';
-import { RootStackParamList, SystemInfo } from '../types';
-import { getSystemInfo, rebootDevice } from '../services/api';
+import { RootStackParamList } from '../types';
+import { rebootDevice } from '../services/api';
+import { useDeviceInfo } from '../hooks/useDeviceInfo';
 import { StorageBar } from '../components/StorageBar';
 import { QuickAction } from '../components/QuickAction';
 import { COLORS, FONTS } from '../utils/constants';
@@ -22,34 +22,9 @@ type Props = NativeStackScreenProps<RootStackParamList, 'Dashboard'>;
 
 export function DashboardScreen({ navigation }: Props) {
   const insets = useSafeAreaInsets();
-  const [info, setInfo] = useState<SystemInfo | null>(null);
-  const [refreshing, setRefreshing] = useState(false);
-  const [error, setError] = useState<string | null>(null);
+  const { info, isLoading, isError, refetch, isRefetching } = useDeviceInfo();
 
-  const fetchInfo = useCallback(async () => {
-    setError(null);
-    try {
-      const data = await getSystemInfo();
-      setInfo(data);
-    } catch {
-      setInfo(null);
-      setError('Could not reach device. Are you connected to BruceNet?');
-    }
-  }, []);
-
-  const isConnected = Boolean(info) && !error;
-
-  useFocusEffect(
-    useCallback(() => {
-      fetchInfo();
-    }, [fetchInfo]),
-  );
-
-  const onRefresh = useCallback(async () => {
-    setRefreshing(true);
-    await fetchInfo();
-    setRefreshing(false);
-  }, [fetchInfo]);
+  const isConnected = Boolean(info) && !isError;
 
   const handleReboot = () => {
     Alert.alert(
@@ -85,13 +60,13 @@ export function DashboardScreen({ navigation }: Props) {
         contentContainerStyle={[styles.content, { paddingBottom: Math.max(insets.bottom, 16) + 24 }]}
         refreshControl={
           <RefreshControl
-            refreshing={refreshing}
-            onRefresh={onRefresh}
+            refreshing={isRefetching}
+            onRefresh={refetch}
             tintColor={COLORS.primary}
             colors={[COLORS.primary]}
           />
         }>
-        {/* Connection status */}
+        {/* Connection status banner */}
         <View style={styles.banner}>
           <View>
             <Text style={styles.bannerTitle}>Device {isConnected ? 'Connected' : 'Disconnected'}</Text>
@@ -103,9 +78,11 @@ export function DashboardScreen({ navigation }: Props) {
         </View>
 
         {/* Error banner */}
-        {error && (
+        {isError && (
           <View style={styles.errorBanner}>
-            <Text style={styles.errorText}>{error}</Text>
+            <Text style={styles.errorText}>
+              Could not reach device. Are you connected to BruceNet?
+            </Text>
           </View>
         )}
 
@@ -117,7 +94,7 @@ export function DashboardScreen({ navigation }: Props) {
             <View style={styles.divider} />
             <StorageBar label="LittleFS" info={info.LittleFS} />
           </View>
-        ) : !error ? (
+        ) : isLoading ? (
           <View style={styles.card}>
             <ActivityIndicator color={COLORS.primary} style={styles.loader} />
           </View>

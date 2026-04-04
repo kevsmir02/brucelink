@@ -8,7 +8,7 @@ interface Props {
   info: StorageInfo;
 }
 
-function parseSize(s: string): number {
+export function parseSize(s: string): number {
   const match = s.trim().match(/([\d.]+)\s*(GB|MB|KB|B)/i);
   if (!match) return 0;
   const val = parseFloat(match[1]);
@@ -21,7 +21,7 @@ function parseSize(s: string): number {
   }
 }
 
-export const StorageBar: React.FC<Props> = ({ label, info }) => {
+export function StorageBar({ label, info }: Props) {
   const total = parseSize(info.total);
   const used = parseSize(info.used);
   const pct = total > 0 ? Math.min((used / total) * 100, 100) : 0;
@@ -41,7 +41,7 @@ export const StorageBar: React.FC<Props> = ({ label, info }) => {
       <Text style={styles.free}>{info.free} free</Text>
     </View>
   );
-};
+}
 
 const styles = StyleSheet.create({
   container: {

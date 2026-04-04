@@ -1,4 +1,4 @@
-import React, { useState } from 'react';
+import React, { useState, useEffect } from 'react';
 import {
   View,
   Text,
@@ -14,19 +14,32 @@ import { NativeStackScreenProps } from '@react-navigation/native-stack';
 import Icon from 'react-native-vector-icons/MaterialCommunityIcons';
 
 import { RootStackParamList } from '../types';
-import { updateCredentials, rebootDevice, logout as apiLogout } from '../services/api';
+import { updateCredentials, rebootDevice, getSystemInfo } from '../services/api';
+import { useAuth } from '../contexts/AuthContext';
 import { COLORS } from '../utils/constants';
-import AsyncStorage from '@react-native-async-storage/async-storage';
-import { STORAGE_KEYS } from '../utils/constants';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
+
+// App version sourced from package.json at bundle time
+// eslint-disable-next-line @typescript-eslint/no-var-requires
+const APP_VERSION: string = require('../../package.json').version;
 
 type Props = NativeStackScreenProps<RootStackParamList, 'Settings'>;
 
-export function SettingsScreen({ navigation }: Props) {
+export function SettingsScreen({ navigation: _navigation }: Props) {
   const insets = useSafeAreaInsets();
+  const { logout } = useAuth();
+
   const [newUsername, setNewUsername] = useState('');
   const [newPassword, setNewPassword] = useState('');
   const [credSaving, setCredSaving] = useState(false);
+  const [firmwareVersion, setFirmwareVersion] = useState<string | null>(null);
+
+  // Fetch live firmware version from /systeminfo
+  useEffect(() => {
+    getSystemInfo()
+      .then(info => setFirmwareVersion(info.BRUCE_VERSION))
+      .catch(() => setFirmwareVersion(null));
+  }, []);
 
   const handleSaveCreds = async () => {
     if (!newUsername || !newPassword) {
@@ -72,11 +85,8 @@ export function SettingsScreen({ navigation }: Props) {
       {
         text: 'Logout',
         style: 'destructive',
-        onPress: async () => {
-          await apiLogout();
-          await AsyncStorage.removeItem(STORAGE_KEYS.session);
-          navigation.reset({ index: 0, routes: [{ name: 'Login' }] });
-        },
+        // Single source of truth: useAuth().logout() handles apiLogout() + storage + state
+        onPress: logout,
       },
     ]);
   };
@@ -152,13 +162,15 @@ export function SettingsScreen({ navigation }: Props) {
       <SectionHeader title="ABOUT" icon="information-outline" />
       <View style={styles.card}>
         <View style={styles.aboutRow}>
-          <Text style={styles.aboutLabel}>App</Text>
-          <Text style={styles.aboutValue}>BruceLink v1.0.0</Text>
+          <Text style={styles.aboutLabel}>App Version</Text>
+          <Text style={styles.aboutValue}>BruceLink v{APP_VERSION}</Text>
         </View>
         <View style={styles.divider} />
         <View style={styles.aboutRow}>
           <Text style={styles.aboutLabel}>Firmware</Text>
-          <Text style={styles.aboutValue}>1.14</Text>
+          <Text style={styles.aboutValue}>
+            {firmwareVersion != null ? `v${firmwareVersion}` : '—'}
+          </Text>
         </View>
       </View>
 

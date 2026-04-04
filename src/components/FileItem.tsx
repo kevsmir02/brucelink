@@ -17,7 +17,7 @@ interface Props {
   onLongPress: () => void;
 }
 
-export const FileItem: React.FC<Props> = ({ entry, onPress, onLongPress }) => {
+export function FileItem({ entry, onPress, onLongPress }: Props) {
   const isFolder = entry.type === 'folder';
   const iconName = getFileIcon(entry);
   const executable = !isFolder && isExecutable(entry.name);
@@ -58,7 +58,7 @@ export const FileItem: React.FC<Props> = ({ entry, onPress, onLongPress }) => {
       )}
     </TouchableOpacity>
   );
-};
+}
 
 const styles = StyleSheet.create({
   container: {
