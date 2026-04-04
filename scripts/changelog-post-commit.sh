@@ -13,6 +13,35 @@ if [[ ! -f "$CHANGELOG_FILE" ]]; then
   exit 0
 fi
 
+is_mobile_related_commit() {
+  local changed_files=()
+  mapfile -t changed_files < <(git show --name-only --pretty=format: HEAD)
+
+  for file in "${changed_files[@]}"; do
+    [[ -z "$file" ]] && continue
+    case "$file" in
+      App.tsx|index.js|app.json|babel.config.js|metro.config.js|react-native.config.js|tsconfig.json|jest.config.js|jest.setup.js)
+        return 0
+        ;;
+      android/*|src/*|__tests__/*|patches/*)
+        return 0
+        ;;
+      package.json|package-lock.json)
+        return 0
+        ;;
+      scripts/android-release-build.sh|scripts/mock-access-point.js)
+        return 0
+        ;;
+    esac
+  done
+
+  return 1
+}
+
+if ! is_mobile_related_commit; then
+  exit 0
+fi
+
 COMMIT_SHA="$(git rev-parse --short HEAD)"
 COMMIT_SUBJECT="$(git log -1 --pretty=%s)"
 COMMIT_DATE="$(git log -1 --date=short --pretty=%ad)"

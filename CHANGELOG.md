@@ -8,11 +8,12 @@ and this project follows Semantic Versioning.
 ## [Released]
 
 ### Changed
+- 2026-04-05 Changelog automation now records entries only for commits that touch mobile app code, Android build/config paths, or mobile test assets.
 - 2026-04-05 4355e72 chore: add changelog automation and release tooling
-- 2026-04-05 10ddc99 feat(theme): add theme mode settings and update accent color
+- 2026-04-05 b84b3a3 chore: update docs and fix tooling diagnostics
 <!-- AUTO-CHANGELOG-ENTRIES -->
 
-## [1.0.0] - 2026-04-05
+## [1.1.0] - 2026-04-05
 
 ### Added
 - Initial Android release baseline for BruceLink firmware control flows.

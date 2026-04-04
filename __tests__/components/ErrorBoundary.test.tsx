@@ -2,7 +2,7 @@ import React from 'react';
 import ReactTestRenderer from 'react-test-renderer';
 import { Text, TouchableOpacity } from 'react-native';
 
-import { ErrorBoundary } from '../../src/components/ErrorBoundary';
+import { ErrorBoundary } from '../../src/components/ErrorBoundary.tsx';
 
 describe('ErrorBoundary', () => {
   beforeEach(() => {

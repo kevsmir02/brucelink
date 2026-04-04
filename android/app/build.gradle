@@ -74,8 +74,9 @@ def enableProguardInReleaseBuilds = false
 def jscFlavor = 'io.github.react-native-community:jsc-android:2026004.+'
 
 // Keep APK / Play Store version in sync with repo root package.json — bump "version" for each release.
-def packageJson = new groovy.json.JsonSlurper().parse(file("$projectDir/../../package.json"))
-def pkgVersionName = (packageJson.version ?: "0.0.1").toString()
+def packageJsonText = file("$projectDir/../../package.json").getText("UTF-8")
+def versionMatcher = (packageJsonText =~ /"version"\s*:\s*"([^"]+)"/)
+def pkgVersionName = versionMatcher ? versionMatcher[0][1].toString() : "0.0.1"
 
 /** Semver major.minor.patch → single integer (max 99 per component). Bump package.json version each release. */
 def semverToVersionCode(String v) {

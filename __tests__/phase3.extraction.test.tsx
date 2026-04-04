@@ -3,7 +3,7 @@ import ReactTestRenderer from 'react-test-renderer';
 import { TouchableOpacity } from 'react-native';
 
 import { FsToggle } from '../src/components/FsToggle';
-import { navigatorWebSource } from '../src/assets/navigatorWebSource';
+import { navigatorWebSource } from '../src/assets/navigatorWebSource.ts';
 
 describe('Phase 3 extraction contracts', () => {
   it('FsToggle exposes both filesystems and emits the selected value', async () => {
