@@ -61,8 +61,15 @@ From project root:
 # debug install/run via React Native CLI
 npm run android
 
-# release APK via package script
+# release APK (auto-bumps patch version, e.g. 1.0.0 -> 1.0.1)
 npm run android:release
+
+# release APK without bump (uses current package.json version)
+npm run android:release:build
+
+# release APK with minor/major bump
+npm run android:release:minor
+npm run android:release:major
 ```
 
 Or directly via Gradle:
@@ -80,12 +87,12 @@ cd android
 APK output paths:
 
 - `android/app/build/outputs/apk/debug/app-debug.apk`
-- `android/app/build/outputs/apk/release/app-release.apk`
+- `android/app/build/outputs/apk/release/BruceLink-v<version>-build<code>-release.apk`
 
 Optional install with ADB:
 
 ```bash
-adb install -r android/app/build/outputs/apk/release/app-release.apk
+adb install -r android/app/build/outputs/apk/release/BruceLink-v1.0.1-build10001-release.apk
 ```
 
 > Note: release is currently debug-signed unless you configure your own production keystore.
