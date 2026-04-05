@@ -3,7 +3,7 @@
   "version": "1.2.0",
   "private": true,
   "scripts": {
-    "android": "react-native run-android",
+    "android": "ANDROID_HOME=${ANDROID_HOME:-$HOME/Android/Sdk} ANDROID_SDK_ROOT=${ANDROID_SDK_ROOT:-$HOME/Android/Sdk} JAVA_HOME=${JAVA_HOME:-/opt/android-studio/jbr} PATH=$JAVA_HOME/bin:$ANDROID_HOME/platform-tools:$ANDROID_HOME/emulator:$ANDROID_HOME/cmdline-tools/latest/bin:$PATH react-native run-android",
     "android:release": "npm run version:patch && npm run android:release:build",
     "android:release:build": "bash ./scripts/android-release-build.sh",
     "android:release:minor": "npm run version:minor && npm run android:release:build",

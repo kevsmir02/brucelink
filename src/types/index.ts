@@ -34,4 +34,9 @@ export type RootStackParamList = {
   Terminal: undefined;
   Settings: undefined;
   Navigator: undefined;
+  UniversalKeys: undefined;
+  BadgeCloner: undefined;
+  ReconDashboard: undefined;
+  NrfInterceptor: undefined;
+  PayloadRunner: undefined;
 };

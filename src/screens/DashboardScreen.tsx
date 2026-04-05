@@ -100,6 +100,40 @@ export function DashboardScreen({ navigation }: Props) {
           </View>
         ) : null}
 
+        {/* Tactical Operations */}
+        <Text style={styles.sectionLabel}>TACTICAL OPERATIONS</Text>
+        <View style={styles.grid}>
+          <QuickAction
+            icon="remote"
+            label="Universal Keys"
+            onPress={() => navigation.navigate('UniversalKeys')}
+          />
+          <QuickAction
+            icon="id-card"
+            label="Badge Cloner"
+            onPress={() => navigation.navigate('BadgeCloner')}
+          />
+        </View>
+        <View style={styles.grid}>
+          <QuickAction
+            icon="radar"
+            label="WiFi Recon"
+            onPress={() => navigation.navigate('ReconDashboard')}
+          />
+          <QuickAction
+            icon="radio-tower"
+            label="RF Tools"
+            onPress={() => navigation.navigate('NrfInterceptor')}
+          />
+        </View>
+        <View style={styles.grid}>
+          <QuickAction
+            icon="script-text-outline"
+            label="Payloads"
+            onPress={() => navigation.navigate('PayloadRunner')}
+          />
+        </View>
+
         {/* Quick Actions */}
         <Text style={styles.sectionLabel}>QUICK ACTIONS</Text>
         <View style={styles.grid}>

@@ -5,13 +5,26 @@ import RNFS from 'react-native-fs';
 import { FileEntry, FileSystem, SystemInfo } from '../types';
 import { DEFAULT_BASE_URL, STORAGE_KEYS } from '../utils/constants';
 import { parseFileList } from '../utils/fileHelpers';
+import { commandQueue } from './commandQueue';
 
 // Unauthorized handler — registered by AuthProvider so the Axios 401
 // interceptor can clear auth state without a global navigation ref.
 let _onUnauthorized: (() => void) | null = null;
+let _notifyingUnauthorized = false;
 
 export function registerUnauthorizedHandler(fn: () => void) {
   _onUnauthorized = fn;
+}
+
+function notifyUnauthorized() {
+  if (_notifyingUnauthorized) {
+    return;
+  }
+  _notifyingUnauthorized = true;
+  _onUnauthorized?.();
+  setTimeout(() => {
+    _notifyingUnauthorized = false;
+  }, 0);
 }
 
 // ---------------------------------------------------------------------------
@@ -58,8 +71,8 @@ apiClient.interceptors.request.use(
 apiClient.interceptors.response.use(
   response => response,
   error => {
-    if (error.response?.status === 401 && _onUnauthorized) {
-      _onUnauthorized();
+    if (error.response?.status === 401) {
+      notifyUnauthorized();
     }
     return Promise.reject(error);
   },
@@ -405,28 +418,36 @@ export async function renameFile(
 // Command interface
 // ---------------------------------------------------------------------------
 export async function sendCommand(command: string): Promise<string> {
-  const trimmed = command.trim();
-  const body = `cmnd=${encodeURIComponent(trimmed)}`;
+  return commandQueue.enqueue(async () => {
+    const trimmed = command.trim();
+    const body = `cmnd=${encodeURIComponent(trimmed)}`;
 
-  try {
-    // Send as x-www-form-urlencoded via our configured apiClient.
-    // ESPAsyncWebServer accepts this perfectly in hasArg()
-    const { data } = await apiClient.post<string>('/cm', body, {
-      headers: { 'Content-Type': 'application/x-www-form-urlencoded' },
-      responseType: 'text',
-      timeout: 15000,
-    });
-    return data as unknown as string;
-  } catch (err: any) {
-    if (err.response) {
-      if (err.response.status === 401) {
-        _onUnauthorized?.();
-        throw new Error('Unauthorized access (401)');
+    try {
+      // Send as x-www-form-urlencoded via our configured apiClient.
+      // ESPAsyncWebServer accepts this perfectly in hasArg()
+      const { data } = await apiClient.post<string>('/cm', body, {
+        headers: { 'Content-Type': 'application/x-www-form-urlencoded' },
+        responseType: 'text',
+        timeout: 15000,
+      });
+      return data as unknown as string;
+    } catch (err: any) {
+      if (err.response) {
+        if (err.response.status === 401) {
+          notifyUnauthorized();
+          const unauthorizedError = new Error('Unauthorized access (401)') as Error & { status?: number };
+          unauthorizedError.status = 401;
+          throw unauthorizedError;
+        }
+        const responseError = new Error(
+          err.response.data || `Request failed with status ${err.response.status}`
+        ) as Error & { status?: number };
+        responseError.status = err.response.status;
+        throw responseError;
       }
-      throw new Error(err.response.data || `Request failed with status ${err.response.status}`);
+      throw new Error(err.message ?? 'Network error');
     }
-    throw new Error(err.message ?? 'Network error');
-  }
+  });
 }
 
 // ---------------------------------------------------------------------------

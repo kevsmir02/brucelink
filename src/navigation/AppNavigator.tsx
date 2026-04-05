@@ -16,6 +16,11 @@ import { FileEditorScreen } from '../screens/FileEditorScreen';
 import { TerminalScreen } from '../screens/TerminalScreen';
 import { SettingsScreen } from '../screens/SettingsScreen';
 import { NavigatorScreen } from '../screens/NavigatorScreen';
+import { UniversalKeysScreen } from '../screens/UniversalKeysScreen';
+import { BadgeClonerScreen } from '../screens/BadgeClonerScreen';
+import { ReconDashboardScreen } from '../screens/ReconDashboardScreen';
+import { NrfInterceptorScreen } from '../screens/NrfInterceptorScreen';
+import { PayloadRunnerScreen } from '../screens/PayloadRunnerScreen';
 
 const Stack = createNativeStackNavigator<RootStackParamList>();
 
@@ -80,6 +85,26 @@ function NavigatorScreenWithBoundary(props: React.ComponentProps<typeof Navigato
   );
 }
 
+function UniversalKeysScreenWithBoundary(props: React.ComponentProps<typeof UniversalKeysScreen>) {
+  return <ErrorBoundary><UniversalKeysScreen {...props} /></ErrorBoundary>;
+}
+
+function BadgeClonerScreenWithBoundary(props: React.ComponentProps<typeof BadgeClonerScreen>) {
+  return <ErrorBoundary><BadgeClonerScreen {...props} /></ErrorBoundary>;
+}
+
+function ReconDashboardScreenWithBoundary(props: React.ComponentProps<typeof ReconDashboardScreen>) {
+  return <ErrorBoundary><ReconDashboardScreen {...props} /></ErrorBoundary>;
+}
+
+function NrfInterceptorScreenWithBoundary(props: React.ComponentProps<typeof NrfInterceptorScreen>) {
+  return <ErrorBoundary><NrfInterceptorScreen {...props} /></ErrorBoundary>;
+}
+
+function PayloadRunnerScreenWithBoundary(props: React.ComponentProps<typeof PayloadRunnerScreen>) {
+  return <ErrorBoundary><PayloadRunnerScreen {...props} /></ErrorBoundary>;
+}
+
 export function AppNavigator() {
   const { authState, markAuthenticated } = useAuth();
 
@@ -140,6 +165,31 @@ export function AppNavigator() {
           name="Navigator"
           component={NavigatorScreenWithBoundary}
           options={{ title: 'Navigator' }}
+        />
+        <Stack.Screen
+          name="UniversalKeys"
+          component={UniversalKeysScreenWithBoundary}
+          options={{ title: 'Universal Keys' }}
+        />
+        <Stack.Screen
+          name="BadgeCloner"
+          component={BadgeClonerScreenWithBoundary}
+          options={{ title: 'Badge Cloner' }}
+        />
+        <Stack.Screen
+          name="ReconDashboard"
+          component={ReconDashboardScreenWithBoundary}
+          options={{ title: 'Recon Dashboard' }}
+        />
+        <Stack.Screen
+          name="NrfInterceptor"
+          component={NrfInterceptorScreenWithBoundary}
+          options={{ title: 'RF Interceptor' }}
+        />
+        <Stack.Screen
+          name="PayloadRunner"
+          component={PayloadRunnerScreenWithBoundary}
+          options={{ title: 'Payload Runner' }}
         />
       </Stack.Navigator>
     </NavigationContainer>
