@@ -18,7 +18,7 @@ import Icon from 'react-native-vector-icons/MaterialCommunityIcons';
 import { RootStackParamList, CommandHistoryItem } from '../types';
 import { sendCommand } from '../services/api';
 import { CommandChip } from '../components/CommandChip';
-import { COLORS } from '../utils/constants';
+import { useTheme } from '../contexts/ThemeContext';
 
 type Props = NativeStackScreenProps<RootStackParamList, 'Terminal'>;
 
@@ -50,6 +50,8 @@ function isDestructiveCommand(cmd: string): boolean {
 
 export function TerminalScreen(_props: Props) {
   const insets = useSafeAreaInsets();
+  const theme = useTheme();
+  const s = makeStyles(theme);
   const [history, setHistory] = useState<CommandHistoryItem[]>([]);
   const [input, setInput] = useState('');
   const [loading, setLoading] = useState(false);
@@ -117,12 +119,12 @@ export function TerminalScreen(_props: Props) {
 
   return (
     <KeyboardAvoidingView
-      style={styles.root}
+      style={s.root}
       behavior={undefined}>
       {/* Info notice */}
-      <View style={styles.noticeBanner}>
-        <Icon name="information-outline" size={14} color={COLORS.primary} />
-        <Text style={styles.noticeText}>
+      <View style={s.noticeBanner}>
+        <Icon name="information-outline" size={14} color={theme.colors.primary} />
+        <Text style={s.noticeText}>
           Commands are fire-and-forget. Output appears on the device screen.
         </Text>
       </View>
@@ -130,31 +132,31 @@ export function TerminalScreen(_props: Props) {
       {/* Output area */}
       <ScrollView
         ref={scrollRef}
-        style={styles.output}
-        contentContainerStyle={styles.outputContent}
+        style={s.output}
+        contentContainerStyle={s.outputContent}
         onContentSizeChange={() => scrollRef.current?.scrollToEnd({ animated: false })}>
 
         {history.length === 0 && (
-          <Text style={styles.placeholder}>
+          <Text style={s.placeholder}>
             {'> Type a command below or tap a quick-command chip.\n> Output is displayed on the Bruce device screen.'}
           </Text>
         )}
 
         {history.map((item, idx) => (
-          <View key={idx} style={styles.entry}>
-            <Text style={styles.prompt}>{'> '}{item.command}</Text>
-            <Text style={[styles.response, !item.success && styles.responseError]}>
+          <View key={idx} style={s.entry}>
+            <Text style={s.prompt}>{'> '}{item.command}</Text>
+            <Text style={[s.response, !item.success && s.responseError]}>
               {item.response}
             </Text>
-            <Text style={styles.timestamp}>
+            <Text style={s.timestamp}>
               {new Date(item.timestamp).toLocaleTimeString()}
             </Text>
           </View>
         ))}
 
         {loading && (
-          <View style={styles.entry}>
-            <ActivityIndicator color={COLORS.primary} size="small" />
+          <View style={s.entry}>
+            <ActivityIndicator color={theme.colors.primary} size="small" />
           </View>
         )}
       </ScrollView>
@@ -163,23 +165,23 @@ export function TerminalScreen(_props: Props) {
       <ScrollView
         horizontal
         showsHorizontalScrollIndicator={false}
-        style={[styles.chips, { paddingBottom: Math.max(insets.bottom, 6) }]}
-        contentContainerStyle={styles.chipsContent}>
+        style={[s.chips, { paddingBottom: Math.max(insets.bottom, 6) }]}
+        contentContainerStyle={s.chipsContent}>
         {QUICK_COMMANDS.map(cmd => (
           <CommandChip key={cmd} label={cmd} onPress={() => runCommand(cmd)} />
         ))}
       </ScrollView>
 
       {/* Input row */}
-      <View style={[styles.inputRow, { paddingBottom: Math.max(insets.bottom, 10) }]}>
-        <Text style={styles.inputPrompt}>$</Text>
+      <View style={[s.inputRow, { paddingBottom: Math.max(insets.bottom, 10) }]}>
+        <Text style={s.inputPrompt}>$</Text>
         <TextInput
-          style={styles.input}
+          style={s.input}
           value={input}
           onChangeText={setInput}
           onSubmitEditing={() => runCommand(input)}
           placeholder="Enter command..."
-          placeholderTextColor={COLORS.textMuted}
+          placeholderTextColor={theme.colors.textMuted}
           autoCapitalize="none"
           autoCorrect={false}
           returnKeyType="send"
@@ -187,135 +189,137 @@ export function TerminalScreen(_props: Props) {
           editable={!loading}
         />
         {history.length > 0 && (
-          <TouchableOpacity onPress={clearHistory} style={styles.clearBtn}>
-            <Icon name="delete-sweep-outline" size={20} color={COLORS.textMuted} />
+          <TouchableOpacity onPress={clearHistory} style={s.clearBtn}>
+            <Icon name="delete-sweep-outline" size={20} color={theme.colors.textMuted} />
           </TouchableOpacity>
         )}
         <TouchableOpacity
-          style={[styles.sendBtn, loading && styles.sendBtnDisabled]}
+          style={[s.sendBtn, loading && s.sendBtnDisabled]}
           onPress={() => runCommand(input)}
           disabled={loading || !input.trim()}
           activeOpacity={0.8}>
-          <Icon name="send" size={18} color={loading ? COLORS.textMuted : COLORS.background} />
+          <Icon name="send" size={18} color={loading ? theme.colors.textMuted : theme.colors.background} />
         </TouchableOpacity>
       </View>
     </KeyboardAvoidingView>
   );
 }
 
-const styles = StyleSheet.create({
-  root: {
-    flex: 1,
-    backgroundColor: '#050505',
-  },
-  noticeBanner: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    backgroundColor: 'rgba(155,81,224,0.1)',
-    borderBottomWidth: 1,
-    borderBottomColor: COLORS.primaryDim,
-    paddingHorizontal: 14,
-    paddingVertical: 8,
-    gap: 8,
-  },
-  noticeText: {
-    color: COLORS.primary,
-    fontSize: 11,
-    flex: 1,
-    opacity: 0.8,
-  },
-  output: {
-    flex: 1,
-  },
-  outputContent: {
-    padding: 14,
-    paddingBottom: 8,
-  },
-  placeholder: {
-    color: COLORS.textMuted,
-    fontFamily: 'Courier New',
-    fontSize: 13,
-    lineHeight: 20,
-  },
-  entry: {
-    marginBottom: 16,
-  },
-  prompt: {
-    color: COLORS.primary,
-    fontFamily: 'Courier New',
-    fontSize: 14,
-    lineHeight: 20,
-    fontWeight: '700',
-  },
-  response: {
-    color: COLORS.text,
-    fontFamily: 'Courier New',
-    fontSize: 13,
-    lineHeight: 20,
-    marginTop: 2,
-    opacity: 0.9,
-  },
-  responseError: {
-    color: COLORS.error,
-  },
-  timestamp: {
-    color: COLORS.textMuted,
-    fontFamily: 'Courier New',
-    fontSize: 10,
-    marginTop: 4,
-    opacity: 0.6,
-  },
-  chips: {
-    borderTopWidth: 1,
-    borderTopColor: COLORS.border,
-    minHeight: 50,
-    backgroundColor: COLORS.background,
-  },
-  chipsContent: {
-    paddingHorizontal: 12,
-    paddingTop: 8,
-    paddingBottom: 0,
-    alignItems: 'center',
-  },
-  inputRow: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    backgroundColor: COLORS.surface,
-    borderTopWidth: 1,
-    borderTopColor: COLORS.border,
-    paddingHorizontal: 12,
-    paddingTop: 10,
-    paddingBottom: 10,
-  },
-  inputPrompt: {
-    color: COLORS.primary,
-    fontFamily: 'Courier New',
-    fontSize: 16,
-    fontWeight: '700',
-    marginRight: 8,
-  },
-  input: {
-    flex: 1,
-    color: COLORS.text,
-    fontFamily: 'Courier New',
-    fontSize: 14,
-    paddingVertical: 6,
-    paddingHorizontal: 0,
-  },
-  clearBtn: {
-    padding: 6,
-    marginRight: 4,
-  },
-  sendBtn: {
-    backgroundColor: COLORS.primary,
-    width: 36,
-    height: 36,
-    borderRadius: 18,
-    alignItems: 'center',
-    justifyContent: 'center',
-    marginLeft: 8,
-  },
-  sendBtnDisabled: {
-    backgroundColor: COLORS.border,
-  },
-});
+function makeStyles(theme: ReturnType<typeof useTheme>) {
+  return StyleSheet.create({
+    root: {
+      flex: 1,
+      backgroundColor: theme.colors.background,
+    },
+    noticeBanner: {
+      flexDirection: 'row',
+      alignItems: 'center',
+      backgroundColor: 'rgba(155,81,224,0.1)',
+      borderBottomWidth: 1,
+      borderBottomColor: theme.colors.primaryDim,
+      paddingHorizontal: 14,
+      paddingVertical: 8,
+      gap: 8,
+    },
+    noticeText: {
+      color: theme.colors.primary,
+      fontSize: 11,
+      flex: 1,
+      opacity: 0.8,
+    },
+    output: {
+      flex: 1,
+    },
+    outputContent: {
+      padding: 14,
+      paddingBottom: 8,
+    },
+    placeholder: {
+      color: theme.colors.textMuted,
+      fontFamily: theme.typography.mono,
+      fontSize: 13,
+      lineHeight: 20,
+    },
+    entry: {
+      marginBottom: theme.spacing.md,
+    },
+    prompt: {
+      color: theme.colors.primary,
+      fontFamily: theme.typography.mono,
+      fontSize: 14,
+      lineHeight: 20,
+      fontWeight: '700',
+    },
+    response: {
+      color: theme.colors.text,
+      fontFamily: theme.typography.mono,
+      fontSize: 13,
+      lineHeight: 20,
+      marginTop: 2,
+      opacity: 0.9,
+    },
+    responseError: {
+      color: theme.colors.error,
+    },
+    timestamp: {
+      color: theme.colors.textMuted,
+      fontFamily: theme.typography.mono,
+      fontSize: 10,
+      marginTop: 4,
+      opacity: 0.6,
+    },
+    chips: {
+      borderTopWidth: 1,
+      borderTopColor: theme.colors.border,
+      minHeight: 50,
+      backgroundColor: theme.colors.background,
+    },
+    chipsContent: {
+      paddingHorizontal: 12,
+      paddingTop: 8,
+      paddingBottom: 0,
+      alignItems: 'center',
+    },
+    inputRow: {
+      flexDirection: 'row',
+      alignItems: 'center',
+      backgroundColor: theme.colors.surface,
+      borderTopWidth: 1,
+      borderTopColor: theme.colors.border,
+      paddingHorizontal: 12,
+      paddingTop: 10,
+      paddingBottom: 10,
+    },
+    inputPrompt: {
+      color: theme.colors.primary,
+      fontFamily: theme.typography.mono,
+      fontSize: 16,
+      fontWeight: '700',
+      marginRight: 8,
+    },
+    input: {
+      flex: 1,
+      color: theme.colors.text,
+      fontFamily: theme.typography.mono,
+      fontSize: 14,
+      paddingVertical: 6,
+      paddingHorizontal: 0,
+    },
+    clearBtn: {
+      padding: 6,
+      marginRight: 4,
+    },
+    sendBtn: {
+      backgroundColor: theme.colors.primary,
+      width: 36,
+      height: 36,
+      borderRadius: 18,
+      alignItems: 'center',
+      justifyContent: 'center',
+      marginLeft: 8,
+    },
+    sendBtnDisabled: {
+      backgroundColor: theme.colors.border,
+    },
+  });
+}

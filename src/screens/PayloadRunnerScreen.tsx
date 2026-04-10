@@ -6,7 +6,7 @@ import { FileEntry, RootStackParamList } from '../types';
 import { COLORS } from '../utils/constants';
 import { sendCommand } from '../services/api';
 import { useFileList } from '../hooks/useFileList';
-import { buildPayloadCommand } from '../utils/tacticalCommands';
+import { getExecuteCommand } from '../utils/fileHelpers';
 
 type Props = NativeStackScreenProps<RootStackParamList, 'PayloadRunner'>;
 
@@ -24,7 +24,7 @@ export function PayloadRunnerScreen(_props: Props) {
           style: 'destructive',
           onPress: async () => {
             try {
-              const command = buildPayloadCommand(entry.path);
+              const command = getExecuteCommand(entry.path);
               if (!command) {
                 Alert.alert('Unsupported file', 'Only executable payload types can be dispatched.');
                 return;

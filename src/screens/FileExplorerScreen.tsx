@@ -31,7 +31,8 @@ import {
 } from '../services/api';
 import { useFileList } from '../hooks/useFileList';
 import { PromptModal } from '../components/PromptModal';
-import { COLORS, STORAGE_KEYS } from '../utils/constants';
+import { STORAGE_KEYS } from '../utils/constants';
+import { useTheme } from '../contexts/ThemeContext';
 import {
   parentPath,
   formatBreadcrumbs,
@@ -64,6 +65,8 @@ function ExplorerListHeader({
   onSwitchFs,
   onNavigateTo,
   onNavigateUp,
+  theme,
+  s,
 }: {
   fs: FileSystem;
   currentPath: string;
@@ -73,13 +76,15 @@ function ExplorerListHeader({
   onSwitchFs: (f: FileSystem) => void;
   onNavigateTo: (path: string) => void;
   onNavigateUp: () => void;
+  theme: ReturnType<typeof useTheme>;
+  s: ReturnType<typeof makeStyles>;
 }) {
   return (
     <>
       {disconnected && (
-        <View style={styles.disconnectBanner}>
-          <Icon name="wifi-off" size={14} color={COLORS.warning} />
-          <Text style={styles.disconnectText}>
+        <View style={s.disconnectBanner}>
+          <Icon name="wifi-off" size={14} color={theme.colors.warning} />
+          <Text style={s.disconnectText}>
             Not connected to Bruce AP. Connect to BruceNet and refresh.
           </Text>
         </View>
@@ -87,13 +92,13 @@ function ExplorerListHeader({
 
       <FsToggle fs={fs} onSwitchFs={onSwitchFs} />
 
-      <ScrollView horizontal showsHorizontalScrollIndicator={false} style={styles.breadcrumbScroll}>
-        <View style={styles.breadcrumbs}>
+      <ScrollView horizontal showsHorizontalScrollIndicator={false} style={s.breadcrumbScroll}>
+        <View style={s.breadcrumbs}>
           {breadcrumbs.map((crumb, idx) => (
             <React.Fragment key={crumb.path}>
-              {idx > 0 && <Text style={styles.crumbSep}>/</Text>}
+              {idx > 0 && <Text style={s.crumbSep}>/</Text>}
               <TouchableOpacity onPress={() => onNavigateTo(crumb.path)}>
-                <Text style={[styles.crumb, idx === breadcrumbs.length - 1 && styles.crumbActive]}>
+                <Text style={[s.crumb, idx === breadcrumbs.length - 1 && s.crumbActive]}>
                   {crumb.label}
                 </Text>
               </TouchableOpacity>
@@ -103,15 +108,15 @@ function ExplorerListHeader({
       </ScrollView>
 
       {currentPath !== '/' && (
-        <TouchableOpacity style={styles.upRow} onPress={onNavigateUp}>
-          <Icon name="arrow-up" size={18} color={COLORS.primary} />
-          <Text style={styles.upText}>..</Text>
+        <TouchableOpacity style={s.upRow} onPress={onNavigateUp}>
+          <Icon name="arrow-up" size={18} color={theme.colors.primary} />
+          <Text style={s.upText}>..</Text>
         </TouchableOpacity>
       )}
 
       {error && (
-        <View style={styles.errorBox}>
-          <Text style={styles.errorText}>{error}</Text>
+        <View style={s.errorBox}>
+          <Text style={s.errorText}>{error}</Text>
         </View>
       )}
     </>
@@ -120,6 +125,8 @@ function ExplorerListHeader({
 
 export function FileExplorerScreen({ navigation, route }: Props) {
   const insets = useSafeAreaInsets();
+  const theme = useTheme();
+  const s = makeStyles(theme);
   const [fs, setFs] = useState<FileSystem>(route.params?.fs ?? 'SD');
   const [currentPath, setCurrentPath] = useState(route.params?.folder ?? '/');
   const {
@@ -394,15 +401,15 @@ export function FileExplorerScreen({ navigation, route }: Props) {
   );
 
   return (
-    <View style={styles.root}>
+    <View style={s.root}>
       {/* Upload progress overlay */}
       {uploadProgress !== null && (
-        <View style={styles.uploadOverlay}>
-          <View style={styles.uploadCard}>
-            <Icon name="upload" size={24} color={COLORS.primary} />
-            <Text style={styles.uploadLabel}>Uploading... {uploadProgress}%</Text>
-            <View style={styles.uploadTrack}>
-              <View style={[styles.uploadFill, { width: `${uploadProgress}%` as any }]} />
+        <View style={s.uploadOverlay}>
+          <View style={s.uploadCard}>
+            <Icon name="upload" size={24} color={theme.colors.primary} />
+            <Text style={s.uploadLabel}>Uploading... {uploadProgress}%</Text>
+            <View style={s.uploadTrack}>
+              <View style={[s.uploadFill, { width: `${uploadProgress}%` as any }]} />
             </View>
           </View>
         </View>
@@ -410,17 +417,17 @@ export function FileExplorerScreen({ navigation, route }: Props) {
 
       {/* Download spinner overlay */}
       {downloadingPath !== null && (
-        <View style={styles.uploadOverlay}>
-          <View style={styles.uploadCard}>
-            <ActivityIndicator color={COLORS.primary} size="large" />
-            <Text style={styles.uploadLabel}>Downloading…</Text>
+        <View style={s.uploadOverlay}>
+          <View style={s.uploadCard}>
+            <ActivityIndicator color={theme.colors.primary} size="large" />
+            <Text style={s.uploadLabel}>Downloading…</Text>
           </View>
         </View>
       )}
 
       {loading && !refreshing && !uploadProgress && (
-        <View style={styles.loadingOverlay}>
-          <ActivityIndicator color={COLORS.primary} size="large" />
+        <View style={s.loadingOverlay}>
+          <ActivityIndicator color={theme.colors.primary} size="large" />
         </View>
       )}
 
@@ -439,13 +446,15 @@ export function FileExplorerScreen({ navigation, route }: Props) {
             onSwitchFs={switchFs}
             onNavigateTo={navigateTo}
             onNavigateUp={navigateUp}
+            theme={theme}
+            s={s}
           />
         }
         ListEmptyComponent={
           !loading ? (
-            <View style={styles.empty}>
-              <Icon name="folder-open-outline" size={48} color={COLORS.border} />
-              <Text style={styles.emptyText}>Empty directory</Text>
+            <View style={s.empty}>
+              <Icon name="folder-open-outline" size={48} color={theme.colors.border} />
+              <Text style={s.emptyText}>Empty directory</Text>
             </View>
           ) : null
         }
@@ -453,11 +462,11 @@ export function FileExplorerScreen({ navigation, route }: Props) {
           <RefreshControl
             refreshing={refreshing}
             onRefresh={refetch}
-            tintColor={COLORS.primary}
-            colors={[COLORS.primary]}
+            tintColor={theme.colors.primary}
+            colors={[theme.colors.primary]}
           />
         }
-        style={styles.list}
+        style={s.list}
       />
 
       <ExplorerFab
@@ -506,127 +515,129 @@ export function FileExplorerScreen({ navigation, route }: Props) {
   );
 }
 
-const styles = StyleSheet.create({
-  root: {
-    flex: 1,
-    backgroundColor: COLORS.background,
-  },
-  list: {
-    flex: 1,
-  },
-  loadingOverlay: {
-    ...StyleSheet.absoluteFillObject,
-    backgroundColor: 'rgba(10,10,10,0.6)',
-    alignItems: 'center',
-    justifyContent: 'center',
-    zIndex: 10,
-  },
-  disconnectBanner: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    backgroundColor: 'rgba(255,170,0,0.1)',
-    borderBottomWidth: 1,
-    borderBottomColor: COLORS.warning,
-    paddingHorizontal: 14,
-    paddingVertical: 10,
-    gap: 8,
-  },
-  disconnectText: {
-    color: COLORS.warning,
-    fontSize: 12,
-    flex: 1,
-    lineHeight: 16,
-  },
-  breadcrumbScroll: {
-    paddingHorizontal: 16,
-    marginBottom: 4,
-  },
-  breadcrumbs: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    paddingVertical: 6,
-  },
-  crumb: {
-    color: COLORS.textMuted,
-    fontSize: 13,
-    fontFamily: 'Courier New',
-  },
-  crumbActive: {
-    color: COLORS.primary,
-  },
-  crumbSep: {
-    color: COLORS.border,
-    marginHorizontal: 4,
-    fontSize: 13,
-  },
-  upRow: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    paddingHorizontal: 16,
-    paddingVertical: 12,
-    borderBottomWidth: 1,
-    borderBottomColor: COLORS.border,
-  },
-  upText: {
-    color: COLORS.primary,
-    marginLeft: 10,
-    fontSize: 15,
-    fontFamily: 'Courier New',
-  },
-  errorBox: {
-    backgroundColor: 'rgba(255,68,68,0.1)',
-    borderRadius: 8,
-    borderWidth: 1,
-    borderColor: COLORS.errorDim,
-    margin: 16,
-    padding: 12,
-  },
-  errorText: {
-    color: COLORS.error,
-    fontSize: 13,
-  },
-  empty: {
-    alignItems: 'center',
-    marginTop: 60,
-  },
-  emptyText: {
-    color: COLORS.textMuted,
-    marginTop: 12,
-    fontSize: 15,
-  },
-  // Upload / download overlays
-  uploadOverlay: {
-    ...StyleSheet.absoluteFillObject,
-    backgroundColor: 'rgba(10,10,10,0.75)',
-    alignItems: 'center',
-    justifyContent: 'center',
-    zIndex: 20,
-  },
-  uploadCard: {
-    backgroundColor: COLORS.surface,
-    borderRadius: 16,
-    padding: 28,
-    alignItems: 'center',
-    minWidth: 200,
-    borderWidth: 1,
-    borderColor: COLORS.primaryDim,
-  },
-  uploadLabel: {
-    color: COLORS.text,
-    marginTop: 12,
-    marginBottom: 12,
-    fontSize: 14,
-  },
-  uploadTrack: {
-    width: 160,
-    height: 6,
-    backgroundColor: COLORS.border,
-    borderRadius: 3,
-    overflow: 'hidden',
-  },
-  uploadFill: {
-    height: '100%',
-    backgroundColor: COLORS.primary,
-    borderRadius: 3,
-  },
+function makeStyles(theme: ReturnType<typeof useTheme>) {
+  return StyleSheet.create({
+    root: {
+      flex: 1,
+      backgroundColor: theme.colors.background,
+    },
+    list: {
+      flex: 1,
+    },
+    loadingOverlay: {
+      ...StyleSheet.absoluteFillObject,
+      backgroundColor: 'rgba(10,10,10,0.6)',
+      alignItems: 'center',
+      justifyContent: 'center',
+      zIndex: 10,
+    },
+    disconnectBanner: {
+      flexDirection: 'row',
+      alignItems: 'center',
+      backgroundColor: 'rgba(255,170,0,0.1)',
+      borderBottomWidth: 1,
+      borderBottomColor: theme.colors.warning,
+      paddingHorizontal: 14,
+      paddingVertical: 10,
+      gap: 8,
+    },
+    disconnectText: {
+      color: theme.colors.warning,
+      fontSize: 12,
+      flex: 1,
+      lineHeight: 16,
+    },
+    breadcrumbScroll: {
+      paddingHorizontal: theme.spacing.md,
+      marginBottom: 4,
+    },
+    breadcrumbs: {
+      flexDirection: 'row',
+      alignItems: 'center',
+      paddingVertical: 6,
+    },
+    crumb: {
+      color: theme.colors.textMuted,
+      fontSize: 13,
+      fontFamily: theme.typography.mono,
+    },
+    crumbActive: {
+      color: theme.colors.primary,
+    },
+    crumbSep: {
+      color: theme.colors.border,
+      marginHorizontal: 4,
+      fontSize: 13,
+    },
+    upRow: {
+      flexDirection: 'row',
+      alignItems: 'center',
+      paddingHorizontal: theme.spacing.md,
+      paddingVertical: 12,
+      borderBottomWidth: 1,
+      borderBottomColor: theme.colors.border,
+    },
+    upText: {
+      color: theme.colors.primary,
+      marginLeft: 10,
+      fontSize: 15,
+      fontFamily: theme.typography.mono,
+    },
+    errorBox: {
+      backgroundColor: 'rgba(255,68,68,0.1)',
+      borderRadius: theme.radius.md,
+      borderWidth: 1,
+      borderColor: theme.colors.errorDim,
+      margin: theme.spacing.md,
+      padding: 12,
+    },
+    errorText: {
+      color: theme.colors.error,
+      fontSize: 13,
+    },
+    empty: {
+      alignItems: 'center',
+      marginTop: 60,
+    },
+    emptyText: {
+      color: theme.colors.textMuted,
+      marginTop: 12,
+      fontSize: 15,
+    },
+    uploadOverlay: {
+      ...StyleSheet.absoluteFillObject,
+      backgroundColor: 'rgba(10,10,10,0.75)',
+      alignItems: 'center',
+      justifyContent: 'center',
+      zIndex: 20,
+    },
+    uploadCard: {
+      backgroundColor: theme.colors.surface,
+      borderRadius: theme.radius.lg,
+      padding: 28,
+      alignItems: 'center',
+      minWidth: 200,
+      borderWidth: 1,
+      borderColor: theme.colors.primaryDim,
+    },
+    uploadLabel: {
+      color: theme.colors.text,
+      marginTop: 12,
+      marginBottom: 12,
+      fontSize: 14,
+    },
+    uploadTrack: {
+      width: 160,
+      height: 6,
+      backgroundColor: theme.colors.border,
+      borderRadius: 3,
+      overflow: 'hidden',
+    },
+    uploadFill: {
+      height: '100%',
+      backgroundColor: theme.colors.primary,
+      borderRadius: 3,
+    },
+  });
+}
 });

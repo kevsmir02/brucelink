@@ -15,13 +15,15 @@ import { rebootDevice } from '../services/api';
 import { useDeviceInfo } from '../hooks/useDeviceInfo';
 import { StorageBar } from '../components/StorageBar';
 import { QuickAction } from '../components/QuickAction';
-import { COLORS, FONTS } from '../utils/constants';
+import { useTheme } from '../contexts/ThemeContext';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
 
 type Props = NativeStackScreenProps<RootStackParamList, 'Dashboard'>;
 
 export function DashboardScreen({ navigation }: Props) {
   const insets = useSafeAreaInsets();
+  const theme = useTheme();
+  const s = makeStyles(theme);
   const { info, isLoading, isError, refetch, isRefetching } = useDeviceInfo();
 
   const isConnected = Boolean(info) && !isError;
@@ -49,38 +51,38 @@ export function DashboardScreen({ navigation }: Props) {
   };
 
   return (
-    <View style={styles.root}>
+    <View style={s.root}>
       <StatusBar
         translucent
         backgroundColor="transparent"
         barStyle="light-content"
       />
       <ScrollView
-        style={styles.scroll}
-        contentContainerStyle={[styles.content, { paddingBottom: Math.max(insets.bottom, 16) + 24 }]}
+        style={s.scroll}
+        contentContainerStyle={[s.content, { paddingBottom: Math.max(insets.bottom, 16) + 24 }]}
         refreshControl={
           <RefreshControl
             refreshing={isRefetching}
             onRefresh={refetch}
-            tintColor={COLORS.primary}
-            colors={[COLORS.primary]}
+            tintColor={theme.colors.primary}
+            colors={[theme.colors.primary]}
           />
         }>
         {/* Connection status banner */}
-        <View style={styles.banner}>
+        <View style={s.banner}>
           <View>
-            <Text style={styles.bannerTitle}>Device {isConnected ? 'Connected' : 'Disconnected'}</Text>
-            <Text style={[styles.version, !isConnected && styles.versionDisconnected]}>
+            <Text style={s.bannerTitle}>Device {isConnected ? 'Connected' : 'Disconnected'}</Text>
+            <Text style={[s.version, !isConnected && s.versionDisconnected]}>
               {isConnected ? `Firmware v${info?.BRUCE_VERSION}` : 'Waiting for device response'}
             </Text>
           </View>
-          <View style={[styles.statusDot, !isConnected && styles.statusDotDisconnected]} />
+          <View style={[s.statusDot, !isConnected && s.statusDotDisconnected]} />
         </View>
 
         {/* Error banner */}
         {isError && (
-          <View style={styles.errorBanner}>
-            <Text style={styles.errorText}>
+          <View style={s.errorBanner}>
+            <Text style={s.errorText}>
               Could not reach device. Are you connected to BruceNet?
             </Text>
           </View>
@@ -88,55 +90,51 @@ export function DashboardScreen({ navigation }: Props) {
 
         {/* Storage section */}
         {info ? (
-          <View style={styles.card}>
-            <Text style={styles.sectionLabel}>STORAGE</Text>
+          <View style={s.card}>
+            <Text style={s.sectionLabel}>STORAGE</Text>
             <StorageBar label="SD Card" info={info.SD} />
-            <View style={styles.divider} />
+            <View style={s.divider} />
             <StorageBar label="LittleFS" info={info.LittleFS} />
           </View>
         ) : isLoading ? (
-          <View style={styles.card}>
-            <ActivityIndicator color={COLORS.primary} style={styles.loader} />
+          <View style={s.card}>
+            <ActivityIndicator color={theme.colors.primary} style={s.loader} />
           </View>
         ) : null}
 
-        {/* Tactical Operations */}
-        <Text style={styles.sectionLabel}>TACTICAL OPERATIONS</Text>
-        <View style={styles.grid}>
-          <QuickAction
-            icon="remote"
-            label="Universal Keys"
-            onPress={() => navigation.navigate('UniversalKeys')}
-          />
-          <QuickAction
-            icon="id-card"
-            label="Badge Cloner"
-            onPress={() => navigation.navigate('BadgeCloner')}
-          />
-        </View>
-        <View style={styles.grid}>
-          <QuickAction
-            icon="radar"
-            label="WiFi Recon"
-            onPress={() => navigation.navigate('ReconDashboard')}
-          />
+        {/* RF & Sub-GHz */}
+        <Text style={s.sectionLabel}>RF &amp; SUB-GHZ</Text>
+        <View style={s.grid}>
           <QuickAction
             icon="radio-tower"
-            label="RF Tools"
-            onPress={() => navigation.navigate('NrfInterceptor')}
+            label="Sub-GHz"
+            onPress={() => navigation.navigate('PayloadRunner')}
           />
-        </View>
-        <View style={styles.grid}>
           <QuickAction
-            icon="script-text-outline"
-            label="Payloads"
+            icon="remote"
+            label="Infrared"
             onPress={() => navigation.navigate('PayloadRunner')}
           />
         </View>
 
-        {/* Quick Actions */}
-        <Text style={styles.sectionLabel}>QUICK ACTIONS</Text>
-        <View style={styles.grid}>
+        {/* WiFi & Wireless */}
+        <Text style={s.sectionLabel}>WIRELESS</Text>
+        <View style={s.grid}>
+          <QuickAction
+            icon="wifi"
+            label="WiFi Attack"
+            onPress={() => navigation.navigate('PayloadRunner')}
+          />
+          <QuickAction
+            icon="bluetooth"
+            label="BLE"
+            onPress={() => navigation.navigate('PayloadRunner')}
+          />
+        </View>
+
+        {/* Tools */}
+        <Text style={s.sectionLabel}>TOOLS</Text>
+        <View style={s.grid}>
           <QuickAction
             icon="folder-outline"
             label="File Explorer"
@@ -148,7 +146,7 @@ export function DashboardScreen({ navigation }: Props) {
             onPress={() => navigation.navigate('Terminal')}
           />
         </View>
-        <View style={styles.grid}>
+        <View style={s.grid}>
           <QuickAction
             icon="monitor-screenshot"
             label="Navigator"
@@ -160,7 +158,12 @@ export function DashboardScreen({ navigation }: Props) {
             onPress={() => navigation.navigate('Settings')}
           />
         </View>
-        <View style={styles.grid}>
+        <View style={s.grid}>
+          <QuickAction
+            icon="script-text-outline"
+            label="Payloads"
+            onPress={() => navigation.navigate('PayloadRunner')}
+          />
           <QuickAction
             icon="restart"
             label="Reboot"
@@ -170,7 +173,7 @@ export function DashboardScreen({ navigation }: Props) {
         </View>
 
         {/* Footer */}
-        <Text style={styles.footer}>
+        <Text style={s.footer}>
           Pull down to refresh device info
         </Text>
       </ScrollView>
@@ -178,99 +181,101 @@ export function DashboardScreen({ navigation }: Props) {
   );
 }
 
-const styles = StyleSheet.create({
-  root: {
-    flex: 1,
-    backgroundColor: COLORS.background,
-  },
-  scroll: {
-    flex: 1,
-  },
-  content: {
-    padding: 16,
-    paddingTop: 8,
-  },
-  banner: {
-    backgroundColor: COLORS.surface,
-    borderRadius: 16,
-    padding: 20,
-    flexDirection: 'row',
-    alignItems: 'center',
-    justifyContent: 'space-between',
-    marginBottom: 16,
-  },
-  bannerTitle: {
-    color: COLORS.text,
-    fontSize: 20,
-    fontWeight: '700',
-    letterSpacing: 1,
-  },
-  version: {
-    color: COLORS.primary,
-    fontSize: 14,
-    marginTop: 8,
-    fontFamily: FONTS.mono,
-  },
-  versionDisconnected: {
-    color: COLORS.textMuted,
-  },
-  statusDot: {
-    width: 8,
-    height: 8,
-    borderRadius: 4,
-    backgroundColor: COLORS.primary,
-    shadowColor: COLORS.primary,
-    shadowOffset: { width: 0, height: 0 },
-    shadowOpacity: 0.45,
-    shadowRadius: 8,
-    elevation: 3,
-  },
-  statusDotDisconnected: {
-    backgroundColor: COLORS.error,
-    shadowColor: COLORS.error,
-    shadowOpacity: 0.4,
-  },
-  errorBanner: {
-    backgroundColor: 'rgba(255,68,68,0.12)',
-    borderRadius: 16,
-    padding: 16,
-    marginBottom: 16,
-  },
-  errorText: {
-    color: COLORS.error,
-    fontSize: 13,
-  },
-  card: {
-    backgroundColor: COLORS.surface,
-    borderRadius: 16,
-    padding: 16,
-    marginBottom: 16,
-  },
-  sectionLabel: {
-    color: COLORS.textMuted,
-    fontSize: 11,
-    fontWeight: '600',
-    letterSpacing: 1.5,
-    marginBottom: 8,
-    marginTop: 8,
-  },
-  divider: {
-    height: 1,
-    backgroundColor: 'rgba(255,255,255,0.06)',
-    marginVertical: 16,
-  },
-  grid: {
-    flexDirection: 'row',
-    marginHorizontal: -4,
-    marginBottom: 8,
-  },
-  footer: {
-    color: COLORS.textMuted,
-    fontSize: 12,
-    textAlign: 'center',
-    marginTop: 16,
-  },
-  loader: {
-    marginVertical: 24,
-  },
-});
+function makeStyles(theme: ReturnType<typeof useTheme>) {
+  return StyleSheet.create({
+    root: {
+      flex: 1,
+      backgroundColor: theme.colors.background,
+    },
+    scroll: {
+      flex: 1,
+    },
+    content: {
+      padding: theme.spacing.md,
+      paddingTop: theme.spacing.sm,
+    },
+    banner: {
+      backgroundColor: theme.colors.surface,
+      borderRadius: theme.radius.lg,
+      padding: 20,
+      flexDirection: 'row',
+      alignItems: 'center',
+      justifyContent: 'space-between',
+      marginBottom: theme.spacing.md,
+    },
+    bannerTitle: {
+      color: theme.colors.text,
+      fontSize: theme.typography.sizes.lg,
+      fontWeight: '700',
+      letterSpacing: 1,
+    },
+    version: {
+      color: theme.colors.primary,
+      fontSize: theme.typography.sizes.sm,
+      marginTop: theme.spacing.sm,
+      fontFamily: theme.typography.mono,
+    },
+    versionDisconnected: {
+      color: theme.colors.textMuted,
+    },
+    statusDot: {
+      width: 8,
+      height: 8,
+      borderRadius: 4,
+      backgroundColor: theme.colors.primary,
+      shadowColor: theme.colors.primary,
+      shadowOffset: { width: 0, height: 0 },
+      shadowOpacity: 0.45,
+      shadowRadius: 8,
+      elevation: 3,
+    },
+    statusDotDisconnected: {
+      backgroundColor: theme.colors.error,
+      shadowColor: theme.colors.error,
+      shadowOpacity: 0.4,
+    },
+    errorBanner: {
+      backgroundColor: 'rgba(255,68,68,0.12)',
+      borderRadius: theme.radius.lg,
+      padding: theme.spacing.md,
+      marginBottom: theme.spacing.md,
+    },
+    errorText: {
+      color: theme.colors.error,
+      fontSize: theme.typography.sizes.sm,
+    },
+    card: {
+      backgroundColor: theme.colors.surface,
+      borderRadius: theme.radius.lg,
+      padding: theme.spacing.md,
+      marginBottom: theme.spacing.md,
+    },
+    sectionLabel: {
+      color: theme.colors.textMuted,
+      fontSize: 11,
+      fontWeight: '600',
+      letterSpacing: 1.5,
+      marginBottom: theme.spacing.sm,
+      marginTop: theme.spacing.sm,
+    },
+    divider: {
+      height: 1,
+      backgroundColor: 'rgba(255,255,255,0.06)',
+      marginVertical: theme.spacing.md,
+    },
+    grid: {
+      flexDirection: 'row',
+      marginHorizontal: -4,
+      marginBottom: theme.spacing.sm,
+    },
+    footer: {
+      color: theme.colors.textMuted,
+      fontSize: theme.typography.sizes.xs,
+      textAlign: 'center',
+      marginTop: theme.spacing.md,
+    },
+    loader: {
+      marginVertical: 24,
+    },
+  });
+}

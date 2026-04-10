@@ -16,9 +16,8 @@ import Icon from 'react-native-vector-icons/MaterialCommunityIcons';
 import { RootStackParamList } from '../types';
 import { updateCredentials, rebootDevice, getSystemInfo } from '../services/api';
 import { useAuth } from '../contexts/AuthContext';
-import { COLORS } from '../utils/constants';
 import { ThemeModeSelector } from '../components/ThemeModeSelector';
-import { useThemeMode } from '../contexts/ThemeContext';
+import { useTheme, useThemeMode } from '../contexts/ThemeContext';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
 
 // App version sourced from package.json at bundle time
@@ -29,6 +28,8 @@ type Props = NativeStackScreenProps<RootStackParamList, 'Settings'>;
 
 export function SettingsScreen({ navigation: _navigation }: Props) {
   const insets = useSafeAreaInsets();
+  const theme = useTheme();
+  const s = makeStyles(theme);
   const { logout } = useAuth();
   const { themePreference, resolvedTheme, setThemePreference } = useThemeMode();
 
@@ -96,95 +97,99 @@ export function SettingsScreen({ navigation: _navigation }: Props) {
 
   return (
     <ScrollView
-      style={styles.root}
-      contentContainerStyle={[styles.content, { paddingBottom: Math.max(insets.bottom, 16) + 16 }]}>
+      style={s.root}
+      contentContainerStyle={[s.content, { paddingBottom: Math.max(insets.bottom, 16) + 16 }]}>
 
       {/* WebUI Credentials */}
-      <SectionHeader title="WEB UI CREDENTIALS" icon="key-outline" />
-      <View style={styles.card}>
-        <Text style={styles.cardNote}>
+      <SectionHeader title="WEB UI CREDENTIALS" icon="key-outline" theme={theme} s={s} />
+      <View style={s.card}>
+        <Text style={s.cardNote}>
           Changes the Bruce device's web interface username and password.
         </Text>
-        <Text style={styles.inputLabel}>New Username</Text>
+        <Text style={s.inputLabel}>New Username</Text>
         <TextInput
-          style={styles.input}
+          style={s.input}
           value={newUsername}
           onChangeText={setNewUsername}
           placeholder="username"
-          placeholderTextColor={COLORS.textMuted}
+          placeholderTextColor={theme.colors.textMuted}
           autoCapitalize="none"
           autoCorrect={false}
         />
-        <Text style={styles.inputLabel}>New Password</Text>
+        <Text style={s.inputLabel}>New Password</Text>
         <TextInput
-          style={styles.input}
+          style={s.input}
           value={newPassword}
           onChangeText={setNewPassword}
           placeholder="password"
-          placeholderTextColor={COLORS.textMuted}
+          placeholderTextColor={theme.colors.textMuted}
           secureTextEntry
           autoCapitalize="none"
           autoCorrect={false}
         />
         <TouchableOpacity
-          style={[styles.primaryBtn, credSaving && styles.btnDisabled]}
+          style={[s.primaryBtn, credSaving && s.btnDisabled]}
           onPress={handleSaveCreds}
           disabled={credSaving}>
           {credSaving ? (
-            <ActivityIndicator color={COLORS.background} />
+            <ActivityIndicator color={theme.colors.background} />
           ) : (
-            <Text style={styles.primaryBtnText}>Save Credentials</Text>
+            <Text style={s.primaryBtnText}>Save Credentials</Text>
           )}
         </TouchableOpacity>
       </View>
 
       {/* Device */}
-      <SectionHeader title="DEVICE" icon="chip" />
-      <View style={styles.card}>
+      <SectionHeader title="DEVICE" icon="chip" theme={theme} s={s} />
+      <View style={s.card}>
         <SettingsRow
           icon="restart"
           label="Reboot Device"
           onPress={handleReboot}
           danger
+          theme={theme}
+          s={s}
         />
       </View>
 
       {/* Appearance */}
-      <SectionHeader title="APPEARANCE" icon="theme-light-dark" />
-      <View style={styles.card}>
-        <Text style={styles.cardNote}>Choose your theme preference.</Text>
+      <SectionHeader title="APPEARANCE" icon="theme-light-dark" theme={theme} s={s} />
+      <View style={s.card}>
+        <Text style={s.cardNote}>Choose your theme preference.</Text>
         <ThemeModeSelector
           value={themePreference}
           onChange={(next) => {
             void setThemePreference(next);
           }}
         />
-        <Text style={styles.modeHint}>Currently active: {resolvedTheme === 'dark' ? 'Dark' : 'Light'}</Text>
+        <Text style={s.modeHint}>Currently active: {resolvedTheme === 'dark' ? 'Dark' : 'Light'}</Text>
       </View>
 
       {/* Session */}
-      <SectionHeader title="SESSION" icon="account-outline" />
-      <View style={styles.card}>
+      <SectionHeader title="SESSION" icon="account-outline" theme={theme} s={s} />
+      <View style={s.card}>
         <SettingsRow
           icon="logout"
           label="Logout"
           sublabel="Clear session and return to login"
           onPress={handleLogout}
           danger
+          theme={theme}
+          s={s}
         />
       </View>
 
       {/* About */}
-      <SectionHeader title="ABOUT" icon="information-outline" />
-      <View style={styles.card}>
-        <View style={styles.aboutRow}>
-          <Text style={styles.aboutLabel}>App Version</Text>
-          <Text style={styles.aboutValue}>BruceLink v{APP_VERSION}</Text>
+      <SectionHeader title="ABOUT" icon="information-outline" theme={theme} s={s} />
+      <View style={s.card}>
+        <View style={s.aboutRow}>
+          <Text style={s.aboutLabel}>App Version</Text>
+          <Text style={s.aboutValue}>BruceLink v{APP_VERSION}</Text>
         </View>
-        <View style={styles.divider} />
-        <View style={styles.aboutRow}>
-          <Text style={styles.aboutLabel}>Firmware</Text>
-          <Text style={styles.aboutValue}>
+        <View style={s.divider} />
+        <View style={s.aboutRow}>
+          <Text style={s.aboutLabel}>Firmware</Text>
+          <Text style={s.aboutValue}>
             {firmwareVersion != null ? `v${firmwareVersion}` : '—'}
           </Text>
         </View>
@@ -194,11 +199,11 @@ export function SettingsScreen({ navigation: _navigation }: Props) {
   );
 }
 
-function SectionHeader({ title, icon }: { title: string; icon: string }) {
+function SectionHeader({ title, icon, theme, s }: { title: string; icon: string; theme: ReturnType<typeof useTheme>; s: ReturnType<typeof makeStyles> }) {
   return (
-    <View style={styles.sectionHeader}>
-      <Icon name={icon} size={14} color={COLORS.primary} />
-      <Text style={styles.sectionTitle}>{title}</Text>
+    <View style={s.sectionHeader}>
+      <Icon name={icon} size={14} color={theme.colors.primary} />
+      <Text style={s.sectionTitle}>{title}</Text>
     </View>
   );
 }
@@ -209,145 +214,151 @@ function SettingsRow({
   sublabel,
   onPress,
   danger,
+  theme,
+  s,
 }: {
   icon: string;
   label: string;
   sublabel?: string;
   onPress: () => void;
   danger?: boolean;
+  theme: ReturnType<typeof useTheme>;
+  s: ReturnType<typeof makeStyles>;
 }) {
   return (
-    <TouchableOpacity style={styles.settingsRow} onPress={onPress} activeOpacity={0.7}>
-      <Icon name={icon} size={20} color={danger ? COLORS.error : COLORS.text} />
-      <View style={styles.settingsRowText}>
-        <Text style={[styles.settingsLabel, danger && styles.dangerText]}>{label}</Text>
-        {sublabel && <Text style={styles.settingsSublabel}>{sublabel}</Text>}
+    <TouchableOpacity style={s.settingsRow} onPress={onPress} activeOpacity={0.7}>
+      <Icon name={icon} size={20} color={danger ? theme.colors.error : theme.colors.text} />
+      <View style={s.settingsRowText}>
+        <Text style={[s.settingsLabel, danger && s.dangerText]}>{label}</Text>
+        {sublabel && <Text style={s.settingsSublabel}>{sublabel}</Text>}
       </View>
-      <Icon name="chevron-right" size={18} color={COLORS.border} />
+      <Icon name="chevron-right" size={18} color={theme.colors.border} />
     </TouchableOpacity>
   );
 }
 
-const styles = StyleSheet.create({
-  root: {
-    flex: 1,
-    backgroundColor: COLORS.background,
-  },
-  content: {
-    padding: 16,
-    paddingBottom: 48,
-  },
-  sectionHeader: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    gap: 6,
-    marginTop: 24,
-    marginBottom: 8,
-    marginLeft: 4,
-  },
-  sectionTitle: {
-    color: COLORS.textMuted,
-    fontSize: 11,
-    fontWeight: '700',
-    letterSpacing: 1.5,
-  },
-  card: {
-    backgroundColor: COLORS.surface,
-    borderRadius: 12,
-    borderWidth: 1,
-    borderColor: COLORS.border,
-    overflow: 'hidden',
-  },
-  cardNote: {
-    color: COLORS.textMuted,
-    fontSize: 13,
-    padding: 14,
-    paddingBottom: 8,
-    lineHeight: 18,
-  },
-  inputLabel: {
-    color: COLORS.textMuted,
-    fontSize: 12,
-    marginBottom: 6,
-    marginHorizontal: 14,
-  },
-  input: {
-    backgroundColor: COLORS.background,
-    borderWidth: 1,
-    borderColor: COLORS.border,
-    borderRadius: 8,
-    color: COLORS.text,
-    paddingHorizontal: 14,
-    paddingVertical: 11,
-    fontSize: 15,
-    marginHorizontal: 14,
-    marginBottom: 14,
-    fontFamily: 'Courier New',
-  },
-  primaryBtn: {
-    backgroundColor: COLORS.primary,
-    borderRadius: 8,
-    paddingVertical: 12,
-    alignItems: 'center',
-    marginHorizontal: 14,
-    marginBottom: 14,
-  },
-  btnDisabled: {
-    opacity: 0.6,
-  },
-  primaryBtnText: {
-    color: COLORS.background,
-    fontWeight: '700',
-    fontSize: 14,
-    letterSpacing: 0.5,
-  },
-  settingsRow: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    paddingHorizontal: 16,
-    paddingVertical: 14,
-  },
-  settingsRowText: {
-    flex: 1,
-    marginLeft: 14,
-  },
-  settingsLabel: {
-    color: COLORS.text,
-    fontSize: 15,
-  },
-  settingsSublabel: {
-    color: COLORS.textMuted,
-    fontSize: 12,
-    marginTop: 2,
-  },
-  modeHint: {
-    color: COLORS.textMuted,
-    fontSize: 12,
-    marginHorizontal: 14,
-    marginBottom: 14,
-  },
-  dangerText: {
-    color: COLORS.error,
-  },
-  divider: {
-    height: 1,
-    backgroundColor: COLORS.border,
-    marginLeft: 16,
-  },
-  aboutRow: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    justifyContent: 'space-between',
-    paddingHorizontal: 16,
-    paddingVertical: 13,
-  },
-  aboutLabel: {
-    color: COLORS.textMuted,
-    fontSize: 14,
-  },
-  aboutValue: {
-    color: COLORS.text,
-    fontSize: 14,
-    fontFamily: 'Courier New',
-  },
-});
+function makeStyles(theme: ReturnType<typeof useTheme>) {
+  return StyleSheet.create({
+    root: {
+      flex: 1,
+      backgroundColor: theme.colors.background,
+    },
+    content: {
+      padding: theme.spacing.md,
+      paddingBottom: 48,
+    },
+    sectionHeader: {
+      flexDirection: 'row',
+      alignItems: 'center',
+      gap: 6,
+      marginTop: 24,
+      marginBottom: theme.spacing.sm,
+      marginLeft: 4,
+    },
+    sectionTitle: {
+      color: theme.colors.textMuted,
+      fontSize: 11,
+      fontWeight: '700',
+      letterSpacing: 1.5,
+    },
+    card: {
+      backgroundColor: theme.colors.surface,
+      borderRadius: theme.radius.md,
+      borderWidth: 1,
+      borderColor: theme.colors.border,
+      overflow: 'hidden',
+    },
+    cardNote: {
+      color: theme.colors.textMuted,
+      fontSize: 13,
+      padding: 14,
+      paddingBottom: 8,
+      lineHeight: 18,
+    },
+    inputLabel: {
+      color: theme.colors.textMuted,
+      fontSize: 12,
+      marginBottom: 6,
+      marginHorizontal: 14,
+    },
+    input: {
+      backgroundColor: theme.colors.background,
+      borderWidth: 1,
+      borderColor: theme.colors.border,
+      borderRadius: theme.radius.md,
+      color: theme.colors.text,
+      paddingHorizontal: 14,
+      paddingVertical: 11,
+      fontSize: 15,
+      marginHorizontal: 14,
+      marginBottom: 14,
+      fontFamily: theme.typography.mono,
+    },
+    primaryBtn: {
+      backgroundColor: theme.colors.primary,
+      borderRadius: theme.radius.md,
+      paddingVertical: 12,
+      alignItems: 'center',
+      marginHorizontal: 14,
+      marginBottom: 14,
+    },
+    btnDisabled: {
+      opacity: 0.6,
+    },
+    primaryBtnText: {
+      color: theme.colors.background,
+      fontWeight: '700',
+      fontSize: 14,
+      letterSpacing: 0.5,
+    },
+    settingsRow: {
+      flexDirection: 'row',
+      alignItems: 'center',
+      paddingHorizontal: theme.spacing.md,
+      paddingVertical: 14,
+    },
+    settingsRowText: {
+      flex: 1,
+      marginLeft: 14,
+    },
+    settingsLabel: {
+      color: theme.colors.text,
+      fontSize: 15,
+    },
+    settingsSublabel: {
+      color: theme.colors.textMuted,
+      fontSize: 12,
+      marginTop: 2,
+    },
+    modeHint: {
+      color: theme.colors.textMuted,
+      fontSize: 12,
+      marginHorizontal: 14,
+      marginBottom: 14,
+    },
+    dangerText: {
+      color: theme.colors.error,
+    },
+    divider: {
+      height: 1,
+      backgroundColor: theme.colors.border,
+      marginLeft: theme.spacing.md,
+    },
+    aboutRow: {
+      flexDirection: 'row',
+      alignItems: 'center',
+      justifyContent: 'space-between',
+      paddingHorizontal: theme.spacing.md,
+      paddingVertical: 13,
+    },
+    aboutLabel: {
+      color: theme.colors.textMuted,
+      fontSize: 14,
+    },
+    aboutValue: {
+      color: theme.colors.text,
+      fontSize: 14,
+      fontFamily: theme.typography.mono,
+    },
+  });
+}

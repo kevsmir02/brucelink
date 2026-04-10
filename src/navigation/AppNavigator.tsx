@@ -16,11 +16,14 @@ import { FileEditorScreen } from '../screens/FileEditorScreen';
 import { TerminalScreen } from '../screens/TerminalScreen';
 import { SettingsScreen } from '../screens/SettingsScreen';
 import { NavigatorScreen } from '../screens/NavigatorScreen';
-import { UniversalKeysScreen } from '../screens/UniversalKeysScreen';
-import { BadgeClonerScreen } from '../screens/BadgeClonerScreen';
-import { ReconDashboardScreen } from '../screens/ReconDashboardScreen';
-import { NrfInterceptorScreen } from '../screens/NrfInterceptorScreen';
 import { PayloadRunnerScreen } from '../screens/PayloadRunnerScreen';
+import { SubGhzScreen } from '../screens/SubGhzScreen';
+import { InfraredScreen } from '../screens/InfraredScreen';
+import { RfidNfcScreen } from '../screens/RfidNfcScreen';
+import { BleScreen } from '../screens/BleScreen';
+import { Nrf24Screen } from '../screens/Nrf24Screen';
+import { WifiAttackScreen } from '../screens/WifiAttackScreen';
+import { GpsScreen } from '../screens/GpsScreen';
 
 const Stack = createNativeStackNavigator<RootStackParamList>();
 
@@ -85,24 +88,36 @@ function NavigatorScreenWithBoundary(props: React.ComponentProps<typeof Navigato
   );
 }
 
-function UniversalKeysScreenWithBoundary(props: React.ComponentProps<typeof UniversalKeysScreen>) {
-  return <ErrorBoundary><UniversalKeysScreen {...props} /></ErrorBoundary>;
-}
-
-function BadgeClonerScreenWithBoundary(props: React.ComponentProps<typeof BadgeClonerScreen>) {
-  return <ErrorBoundary><BadgeClonerScreen {...props} /></ErrorBoundary>;
-}
-
-function ReconDashboardScreenWithBoundary(props: React.ComponentProps<typeof ReconDashboardScreen>) {
-  return <ErrorBoundary><ReconDashboardScreen {...props} /></ErrorBoundary>;
-}
-
-function NrfInterceptorScreenWithBoundary(props: React.ComponentProps<typeof NrfInterceptorScreen>) {
-  return <ErrorBoundary><NrfInterceptorScreen {...props} /></ErrorBoundary>;
-}
-
 function PayloadRunnerScreenWithBoundary(props: React.ComponentProps<typeof PayloadRunnerScreen>) {
   return <ErrorBoundary><PayloadRunnerScreen {...props} /></ErrorBoundary>;
+}
+
+function SubGhzScreenWithBoundary(props: React.ComponentProps<typeof SubGhzScreen>) {
+  return <ErrorBoundary><SubGhzScreen {...props} /></ErrorBoundary>;
+}
+
+function InfraredScreenWithBoundary(props: React.ComponentProps<typeof InfraredScreen>) {
+  return <ErrorBoundary><InfraredScreen {...props} /></ErrorBoundary>;
+}
+
+function RfidNfcScreenWithBoundary(props: React.ComponentProps<typeof RfidNfcScreen>) {
+  return <ErrorBoundary><RfidNfcScreen {...props} /></ErrorBoundary>;
+}
+
+function BleScreenWithBoundary(props: React.ComponentProps<typeof BleScreen>) {
+  return <ErrorBoundary><BleScreen {...props} /></ErrorBoundary>;
+}
+
+function Nrf24ScreenWithBoundary(props: React.ComponentProps<typeof Nrf24Screen>) {
+  return <ErrorBoundary><Nrf24Screen {...props} /></ErrorBoundary>;
+}
+
+function WifiAttackScreenWithBoundary(props: React.ComponentProps<typeof WifiAttackScreen>) {
+  return <ErrorBoundary><WifiAttackScreen {...props} /></ErrorBoundary>;
+}
+
+function GpsScreenWithBoundary(props: React.ComponentProps<typeof GpsScreen>) {
+  return <ErrorBoundary><GpsScreen {...props} /></ErrorBoundary>;
 }
 
 export function AppNavigator() {
@@ -167,29 +182,44 @@ export function AppNavigator() {
           options={{ title: 'Navigator' }}
         />
         <Stack.Screen
-          name="UniversalKeys"
-          component={UniversalKeysScreenWithBoundary}
-          options={{ title: 'Universal Keys' }}
-        />
-        <Stack.Screen
-          name="BadgeCloner"
-          component={BadgeClonerScreenWithBoundary}
-          options={{ title: 'Badge Cloner' }}
-        />
-        <Stack.Screen
-          name="ReconDashboard"
-          component={ReconDashboardScreenWithBoundary}
-          options={{ title: 'Recon Dashboard' }}
-        />
-        <Stack.Screen
-          name="NrfInterceptor"
-          component={NrfInterceptorScreenWithBoundary}
-          options={{ title: 'RF Interceptor' }}
-        />
-        <Stack.Screen
           name="PayloadRunner"
           component={PayloadRunnerScreenWithBoundary}
           options={{ title: 'Payload Runner' }}
+        />
+        <Stack.Screen
+          name="SubGhz"
+          component={SubGhzScreenWithBoundary}
+          options={{ title: 'Sub-GHz' }}
+        />
+        <Stack.Screen
+          name="Infrared"
+          component={InfraredScreenWithBoundary}
+          options={{ title: 'Infrared' }}
+        />
+        <Stack.Screen
+          name="RfidNfc"
+          component={RfidNfcScreenWithBoundary}
+          options={{ title: 'RFID / NFC' }}
+        />
+        <Stack.Screen
+          name="Ble"
+          component={BleScreenWithBoundary}
+          options={{ title: 'Bluetooth LE' }}
+        />
+        <Stack.Screen
+          name="Nrf24"
+          component={Nrf24ScreenWithBoundary}
+          options={{ title: 'NRF24' }}
+        />
+        <Stack.Screen
+          name="WifiAttack"
+          component={WifiAttackScreenWithBoundary}
+          options={{ title: 'WiFi Attacks' }}
+        />
+        <Stack.Screen
+          name="Gps"
+          component={GpsScreenWithBoundary}
+          options={{ title: 'GPS' }}
         />
       </Stack.Navigator>
     </NavigationContainer>

@@ -17,24 +17,31 @@ import { NativeStackScreenProps } from '@react-navigation/native-stack';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import { RootStackParamList } from '../types';
 import { login } from '../services/api';
-import {
-  COLORS,
-  FONTS,
-  STORAGE_KEYS,
-  DEFAULT_BASE_URL,
-  DEFAULT_USERNAME,
-  DEFAULT_PASSWORD,
-} from '../utils/constants';
+import { useTheme } from '../contexts/ThemeContext';
+import { STORAGE_KEYS, DEFAULT_BASE_URL } from '../utils/constants';
 
 type Props = NativeStackScreenProps<RootStackParamList, 'Login'> & {
   onLoginSuccess: (baseUrl: string) => void;
 };
 
+function isValidDeviceUrl(raw: string): boolean {
+  const url = raw.trim();
+  if (!url) return false;
+  const withScheme = url.startsWith('http://') || url.startsWith('https://') ? url : `http://${url}`;
+  try {
+    const parsed = new URL(withScheme);
+    return parsed.protocol === 'http:' || parsed.protocol === 'https:';
+  } catch {
+    return false;
+  }
+}
+
 export function LoginScreen({ navigation, onLoginSuccess }: Props) {
   const insets = useSafeAreaInsets();
+  const theme = useTheme();
   const [ip, setIp] = useState(DEFAULT_BASE_URL);
-  const [username, setUsername] = useState(DEFAULT_USERNAME);
-  const [password, setPassword] = useState(DEFAULT_PASSWORD);
+  const [username, setUsername] = useState('');
+  const [password, setPassword] = useState('');
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState<string | null>(null);
 
@@ -46,16 +53,28 @@ export function LoginScreen({ navigation, onLoginSuccess }: Props) {
 
   const handleConnect = async () => {
     setError(null);
+
+    const normalizedIp = ip.trim();
+    if (!isValidDeviceUrl(normalizedIp)) {
+      setError('Enter a valid device URL (e.g. http://172.0.0.1)');
+      return;
+    }
+    if (!username.trim()) {
+      setError('Username is required.');
+      return;
+    }
+    if (!password.trim()) {
+      setError('Password is required.');
+      return;
+    }
+
     setLoading(true);
     vibrate(30);
 
-    const normalizedIp = ip.trim();
-    const normalizedUsername = username.trim();
-    const normalizedPassword = password.trim();
     const url = normalizedIp.startsWith('http') ? normalizedIp : `http://${normalizedIp}`;
 
     try {
-      const success = await login(url, normalizedUsername, normalizedPassword);
+      const success = await login(url, username.trim(), password.trim());
       if (success) {
         onLoginSuccess(url);
         navigation.replace('Dashboard');
@@ -65,101 +84,112 @@ export function LoginScreen({ navigation, onLoginSuccess }: Props) {
       }
     } catch (err: any) {
       const msg = err.message ?? 'Connection failed.';
-      setError(msg.includes('unreachable')
-        ? 'Device unreachable. Connect to the BruceNet WiFi AP first.'
-        : `Error: ${msg}`);
+      if (msg.includes('unreachable')) {
+        setError('Device unreachable. Connect to the BruceNet WiFi AP first.');
+      } else if (msg.includes('timeout') || msg.includes('ECONNABORTED')) {
+        setError('Connection timed out. Is the device powered on?');
+      } else {
+        setError(`Error: ${msg}`);
+      }
       vibrate([0, 80, 50, 80]);
     } finally {
       setLoading(false);
     }
   };
 
+  const s = makeStyles(theme);
+
   return (
-    <View style={styles.root}>
+    <View style={s.root}>
       <StatusBar
         translucent
         backgroundColor="transparent"
         barStyle="light-content"
       />
       <KeyboardAvoidingView
-        style={styles.kav}
+        style={s.kav}
         behavior={undefined}>
         <ScrollView
-          contentContainerStyle={[styles.scroll, { paddingBottom: Math.max(insets.bottom, 20) + 20 }]}
+          contentContainerStyle={[s.scroll, { paddingBottom: Math.max(insets.bottom, 20) + 20 }]}
           keyboardShouldPersistTaps="handled">
 
           {/* Logo / Header */}
-          <View style={styles.logoSection}>
+          <View style={s.logoSection}>
             <Image
               source={require('../assets/images/bruce-logo.png')}
-              style={styles.logoImage}
+              style={s.logoImage}
               resizeMode="contain"
               accessibilityLabel="Bruce firmware logo"
             />
-            <Text style={styles.appName}>BruceLink</Text>
+            <Text style={s.appName}>BruceLink</Text>
           </View>
 
           {/* Card */}
-          <View style={styles.card}>
-            <Text style={styles.sectionTitle}>Connect to Device</Text>
+          <View style={s.card}>
+            <Text style={s.sectionTitle}>Connect to Device</Text>
 
-            <Text style={styles.inputLabel}>Device URL</Text>
+            <Text style={s.inputLabel}>Device URL</Text>
             <TextInput
-              style={styles.input}
+              style={s.input}
               value={ip}
               onChangeText={setIp}
               placeholder="http://172.0.0.1"
-              placeholderTextColor={COLORS.textMuted}
+              placeholderTextColor={theme.colors.textMuted}
               autoCapitalize="none"
               autoCorrect={false}
               keyboardType="url"
+              accessibilityLabel="Device URL"
             />
 
-            <Text style={styles.inputLabel}>Username</Text>
+            <Text style={s.inputLabel}>Username</Text>
             <TextInput
-              style={styles.input}
+              style={s.input}
               value={username}
               onChangeText={setUsername}
-              placeholder="admin"
-              placeholderTextColor={COLORS.textMuted}
+              placeholder="Enter username"
+              placeholderTextColor={theme.colors.textMuted}
               autoCapitalize="none"
               autoCorrect={false}
+              accessibilityLabel="Username"
             />
 
-            <Text style={styles.inputLabel}>Password</Text>
+            <Text style={s.inputLabel}>Password</Text>
             <TextInput
-              style={styles.input}
+              style={s.input}
               value={password}
               onChangeText={setPassword}
-              placeholder="admin"
-              placeholderTextColor={COLORS.textMuted}
+              placeholder="Enter password"
+              placeholderTextColor={theme.colors.textMuted}
               secureTextEntry
               autoCapitalize="none"
               autoCorrect={false}
+              accessibilityLabel="Password"
             />
 
             {error && (
-              <View style={styles.errorBox}>
-                <Text style={styles.errorText}>{error}</Text>
+              <View style={s.errorBox}>
+                <Text style={s.errorText}>{error}</Text>
               </View>
             )}
 
             <TouchableOpacity
-              style={[styles.button, loading && styles.buttonDisabled]}
+              style={[s.button, loading && s.buttonDisabled]}
               onPress={handleConnect}
               disabled={loading}
-              activeOpacity={0.8}>
+              activeOpacity={0.8}
+              accessibilityRole="button"
+              accessibilityLabel="Connect to device">
               {loading ? (
-                <ActivityIndicator color={COLORS.background} />
+                <ActivityIndicator color={theme.colors.background} />
               ) : (
-                <Text style={styles.buttonText}>CONNECT</Text>
+                <Text style={s.buttonText}>CONNECT</Text>
               )}
             </TouchableOpacity>
           </View>
 
-          <Text style={styles.hint}>
+          <Text style={s.hint}>
             Connect your Android device to the{'\n'}
-            <Text style={styles.hintAccent}>BruceNet</Text> WiFi access point first.
+            <Text style={s.hintAccent}>BruceNet</Text> WiFi access point first.
           </Text>
         </ScrollView>
       </KeyboardAvoidingView>
@@ -167,109 +197,111 @@ export function LoginScreen({ navigation, onLoginSuccess }: Props) {
   );
 }
 
-const styles = StyleSheet.create({
-  root: {
-    flex: 1,
-    backgroundColor: COLORS.background,
-  },
-  kav: {
-    flex: 1,
-  },
-  scroll: {
-    flexGrow: 1,
-    justifyContent: 'center',
-    paddingHorizontal: 24,
-    paddingTop: 40,
-    paddingBottom: 40,
-  },
-  logoSection: {
-    alignItems: 'center',
-    marginBottom: 32,
-  },
-  logoImage: {
-    width: '100%',
-    maxWidth: 320,
-    height: 112,
-    marginBottom: 16,
-  },
-  appName: {
-    fontSize: 22,
-    color: COLORS.primary,
-    fontFamily: FONTS.pixel,
-    marginTop: 4,
-    textAlign: 'center',
-  },
-  card: {
-    backgroundColor: COLORS.surface,
-    borderRadius: 16,
-    padding: 24,
-    borderWidth: 1,
-    borderColor: COLORS.border,
-  },
-  sectionTitle: {
-    color: COLORS.primary,
-    fontSize: 13,
-    fontWeight: '700',
-    letterSpacing: 1.5,
-    marginBottom: 20,
-    textTransform: 'uppercase',
-  },
-  inputLabel: {
-    color: COLORS.textMuted,
-    fontSize: 12,
-    marginBottom: 6,
-    letterSpacing: 0.5,
-  },
-  input: {
-    backgroundColor: COLORS.background,
-    borderWidth: 1,
-    borderColor: COLORS.border,
-    borderRadius: 8,
-    color: COLORS.text,
-    paddingHorizontal: 14,
-    paddingVertical: 12,
-    fontSize: 15,
-    marginBottom: 16,
-    fontFamily: 'Courier New',
-  },
-  errorBox: {
-    backgroundColor: 'rgba(255,68,68,0.1)',
-    borderRadius: 8,
-    borderWidth: 1,
-    borderColor: COLORS.errorDim,
-    padding: 12,
-    marginBottom: 16,
-  },
-  errorText: {
-    color: COLORS.error,
-    fontSize: 13,
-  },
-  button: {
-    backgroundColor: COLORS.primary,
-    borderRadius: 10,
-    paddingVertical: 14,
-    alignItems: 'center',
-    marginTop: 4,
-  },
-  buttonDisabled: {
-    opacity: 0.6,
-  },
-  buttonText: {
-    color: COLORS.background,
-    fontSize: 15,
-    fontWeight: '800',
-    letterSpacing: 2,
-    fontFamily: 'Courier New',
-  },
-  hint: {
-    color: COLORS.textMuted,
-    fontSize: 13,
-    textAlign: 'center',
-    marginTop: 28,
-    lineHeight: 20,
-  },
-  hintAccent: {
-    color: COLORS.primary,
-    fontWeight: '600',
-  },
-});
+function makeStyles(theme: ReturnType<typeof useTheme>) {
+  return StyleSheet.create({
+    root: {
+      flex: 1,
+      backgroundColor: theme.colors.background,
+    },
+    kav: {
+      flex: 1,
+    },
+    scroll: {
+      flexGrow: 1,
+      justifyContent: 'center',
+      paddingHorizontal: theme.spacing.xl,
+      paddingTop: theme.spacing.xxxl,
+      paddingBottom: theme.spacing.xxxl,
+    },
+    logoSection: {
+      alignItems: 'center',
+      marginBottom: theme.spacing.xxl,
+    },
+    logoImage: {
+      width: '100%',
+      maxWidth: 320,
+      height: 112,
+      marginBottom: theme.spacing.lg,
+    },
+    appName: {
+      fontSize: 22,
+      color: theme.colors.primary,
+      fontFamily: theme.typography.pixel,
+      marginTop: theme.spacing.xs,
+      textAlign: 'center',
+    },
+    card: {
+      backgroundColor: theme.colors.surface,
+      borderRadius: theme.radius.lg,
+      padding: theme.spacing.xl,
+      borderWidth: 1,
+      borderColor: theme.colors.border,
+    },
+    sectionTitle: {
+      color: theme.colors.primary,
+      fontSize: 13,
+      fontWeight: '700',
+      letterSpacing: 1.5,
+      marginBottom: 20,
+      textTransform: 'uppercase',
+    },
+    inputLabel: {
+      color: theme.colors.textMuted,
+      fontSize: 12,
+      marginBottom: 6,
+      letterSpacing: 0.5,
+    },
+    input: {
+      backgroundColor: theme.colors.background,
+      borderWidth: 1,
+      borderColor: theme.colors.border,
+      borderRadius: theme.radius.sm,
+      color: theme.colors.text,
+      paddingHorizontal: 14,
+      paddingVertical: 12,
+      fontSize: 15,
+      marginBottom: theme.spacing.lg,
+      fontFamily: theme.typography.mono,
+    },
+    errorBox: {
+      backgroundColor: 'rgba(255,68,68,0.1)',
+      borderRadius: theme.radius.sm,
+      borderWidth: 1,
+      borderColor: theme.colors.error,
+      padding: theme.spacing.md,
+      marginBottom: theme.spacing.lg,
+    },
+    errorText: {
+      color: theme.colors.error,
+      fontSize: 13,
+    },
+    button: {
+      backgroundColor: theme.colors.primary,
+      borderRadius: 10,
+      paddingVertical: 14,
+      alignItems: 'center',
+      marginTop: theme.spacing.xs,
+    },
+    buttonDisabled: {
+      opacity: 0.6,
+    },
+    buttonText: {
+      color: theme.colors.background,
+      fontSize: 15,
+      fontWeight: '800',
+      letterSpacing: 2,
+      fontFamily: theme.typography.mono,
+    },
+    hint: {
+      color: theme.colors.textMuted,
+      fontSize: 13,
+      textAlign: 'center',
+      marginTop: 28,
+      lineHeight: 20,
+    },
+    hintAccent: {
+      color: theme.colors.primary,
+      fontWeight: '600',
+    },
+  });
+}

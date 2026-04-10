@@ -2,7 +2,7 @@ import React, { createContext, useCallback, useContext, useEffect, useMemo, useS
 import { useColorScheme } from 'react-native';
 import AsyncStorage from '@react-native-async-storage/async-storage';
 
-import type { ThemeMode } from '../theme/tokens';
+import { THEME_TOKENS, type ThemeMode } from '../theme/tokens';
 import {
   STORAGE_KEYS,
   applyThemeMode,
@@ -10,9 +10,12 @@ import {
   type ThemePreference,
 } from '../utils/constants';
 
+type ThemeTokens = (typeof THEME_TOKENS)[ThemeMode];
+
 interface ThemeContextValue {
   themePreference: ThemePreference;
   resolvedTheme: ThemeMode;
+  theme: ThemeTokens;
   setThemePreference: (next: ThemePreference) => Promise<void>;
 }
 
@@ -36,6 +39,7 @@ export function ThemeProvider({ children }: { children: React.ReactNode }) {
   }, []);
 
   const resolvedTheme = resolveThemeMode(themePreference, systemScheme);
+  const theme = THEME_TOKENS[resolvedTheme];
 
   useEffect(() => {
     applyThemeMode(resolvedTheme);
@@ -47,17 +51,31 @@ export function ThemeProvider({ children }: { children: React.ReactNode }) {
   }, []);
 
   const value = useMemo(
-    () => ({ themePreference, resolvedTheme, setThemePreference }),
-    [themePreference, resolvedTheme, setThemePreference],
+    () => ({ themePreference, resolvedTheme, theme, setThemePreference }),
+    [themePreference, resolvedTheme, theme, setThemePreference],
   );
 
   return <ThemeContext.Provider value={value}>{children}</ThemeContext.Provider>;
 }
 
-export function useThemeMode(): ThemeContextValue {
+/** Returns the full immutable theme tokens for the active theme. */
+export function useTheme(): ThemeTokens {
+  const ctx = useContext(ThemeContext);
+  if (!ctx) {
+    throw new Error('useTheme must be used inside <ThemeProvider>');
+  }
+  return ctx.theme;
+}
+
+/** Returns theme preference controls (for settings screens). */
+export function useThemeMode() {
   const ctx = useContext(ThemeContext);
   if (!ctx) {
     throw new Error('useThemeMode must be used inside <ThemeProvider>');
   }
-  return ctx;
+  return {
+    themePreference: ctx.themePreference,
+    resolvedTheme: ctx.resolvedTheme,
+    setThemePreference: ctx.setThemePreference,
+  };
 }

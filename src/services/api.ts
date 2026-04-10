@@ -5,7 +5,9 @@ import RNFS from 'react-native-fs';
 import { FileEntry, FileSystem, SystemInfo } from '../types';
 import { DEFAULT_BASE_URL, STORAGE_KEYS } from '../utils/constants';
 import { parseFileList } from '../utils/fileHelpers';
+import { sanitizeCommand } from '../utils/sanitize';
 import { commandQueue } from './commandQueue';
+import { secureStorage } from './secureStorage';
 
 // Unauthorized handler — registered by AuthProvider so the Axios 401
 // interceptor can clear auth state without a global navigation ref.
@@ -42,7 +44,7 @@ export function setBaseUrl(url: string) {
 }
 
 export async function getSessionToken(): Promise<string | null> {
-  return AsyncStorage.getItem(STORAGE_KEYS.session);
+  return secureStorage.getToken();
 }
 
 export const apiClient: AxiosInstance = axios.create({
@@ -56,7 +58,7 @@ export const apiClient: AxiosInstance = axios.create({
 // ---------------------------------------------------------------------------
 apiClient.interceptors.request.use(
   async (config: InternalAxiosRequestConfig) => {
-    const token = await AsyncStorage.getItem(STORAGE_KEYS.session);
+    const token = await secureStorage.getToken();
     if (token) {
       config.headers.set('Cookie', `BRUCESESSION=${token}`);
     }
@@ -114,74 +116,6 @@ function extractBruceSessionToken(headers: unknown): string | null {
   return null;
 }
 
-/**
- * React Native often strips Set-Cookie from axios `response.headers`, but the
- * underlying XHR may still list it in getAllResponseHeaders() (browser WebView does not).
- */
-function extractBruceSessionFromXHR(request: unknown): string | null {
-  if (request == null || typeof request !== 'object') {
-    return null;
-  }
-  const xhr = request as {
-    getResponseHeader?: (n: string) => string | null;
-    getAllResponseHeaders?: () => string;
-  };
-  if (typeof xhr.getResponseHeader === 'function') {
-    for (const name of ['Set-Cookie', 'set-cookie']) {
-      const v = xhr.getResponseHeader(name);
-      if (v) {
-        const m = v.match(/BRUCESESSION=([^;,\s]+)/);
-        if (m) {
-          return m[1];
-        }
-      }
-    }
-  }
-  if (typeof xhr.getAllResponseHeaders === 'function') {
-    const block = xhr.getAllResponseHeaders();
-    if (block) {
-      for (const line of block.split(/[\r\n]+/)) {
-        const m = line.match(/^set-cookie:\s*(.+)$/i);
-        if (m) {
-          const inner = m[1].match(/BRUCESESSION=([^;,\s]+)/);
-          if (inner) {
-            return inner[1];
-          }
-        }
-      }
-    }
-  }
-  return null;
-}
-
-function parseSessionFromSetCookieValue(value: string): string | null {
-  const m = String(value).match(/BRUCESESSION=([^;,\s]+)/);
-  return m ? m[1] : null;
-}
-
-/** RN fetch/Headers may expose Set-Cookie here (undocumented but works on some builds). */
-function extractSessionFromFetchHeaders(res: Response): string | null {
-  const h = res.headers as unknown as { getSetCookie?: () => string[] };
-  if (typeof h.getSetCookie === 'function') {
-    for (const line of h.getSetCookie()) {
-      const t = parseSessionFromSetCookieValue(line);
-      if (t) {
-        return t;
-      }
-    }
-  }
-  let found: string | null = null;
-  res.headers.forEach((value, key) => {
-    if (key.toLowerCase() === 'set-cookie' && !found) {
-      const t = parseSessionFromSetCookieValue(value);
-      if (t) {
-        found = t;
-      }
-    }
-  });
-  return found;
-}
-
 export async function login(
   baseUrl: string,
   username: string,
@@ -189,30 +123,25 @@ export async function login(
 ): Promise<boolean> {
   setBaseUrl(baseUrl);
 
-  // Same as Bruce WebUI login.html: POST application/x-www-form-urlencoded (not multipart).
   const body = `username=${encodeURIComponent(username)}&password=${encodeURIComponent(password)}`;
   const origin = baseUrl.replace(/\/$/, '');
-  const loginUrl = `${origin}/login`;
 
   try {
-    let sessionToken: string | null = null;
-
-    // 1) fetch + redirect:manual — RN often surfaces Set-Cookie here better than axios alone.
-    const fetchRes = await fetch(loginUrl, {
-      method: 'POST',
+    // Step 1: Axios POST — firmware returns 302 with Set-Cookie header.
+    const response = await apiClient.post('/login', body, {
       headers: { 'Content-Type': 'application/x-www-form-urlencoded' },
-      body,
-      redirect: 'manual',
-    } as Parameters<typeof fetch>[1]);
+      maxRedirects: 0,
+      validateStatus: (status) => status >= 200 && status < 400,
+    });
 
-    const fetchLocation = fetchRes.headers.get('Location') ?? '';
-    if (fetchLocation.includes('failed')) {
+    const location = String(getResponseHeader(response, 'location') ?? '');
+    if (location.includes('failed')) {
       return false;
     }
 
-    sessionToken = extractSessionFromFetchHeaders(fetchRes);
+    let sessionToken = extractBruceSessionToken(response.headers);
 
-    // 2) OkHttp may store the cookie jar after fetch — read it back (Android).
+    // Step 2 (fallback): OkHttp cookie jar — Android may intercept Set-Cookie.
     if (!sessionToken) {
       try {
         const jar = await CookieManager.get(origin);
@@ -221,44 +150,18 @@ export async function login(
           sessionToken = c.value;
         }
       } catch {
-        /* CookieManager optional if native module not linked */
-      }
-    }
-
-    // 3) Axios + raw XHR header dump (some RN builds only expose Set-Cookie there).
-    if (!sessionToken) {
-      const response = await apiClient.post('/login', body, {
-        headers: { 'Content-Type': 'application/x-www-form-urlencoded' },
-        maxRedirects: 0,
-        validateStatus: (status) => status >= 200 && status < 400,
-      });
-
-      const location = String(getResponseHeader(response, 'location') ?? '');
-      if (location.includes('failed')) {
-        return false;
-      }
-
-      sessionToken =
-        extractBruceSessionToken(response.headers)
-        ?? extractBruceSessionFromXHR((response as { request?: unknown }).request);
-
-      if (!sessionToken) {
-        const xBruce = getResponseHeader(response, 'x-bruce-session');
-        if (xBruce != null) {
-          sessionToken = Array.isArray(xBruce) ? xBruce[0] ?? null : String(xBruce);
-        }
+        /* CookieManager optional */
       }
     }
 
     if (sessionToken) {
-      await AsyncStorage.setItem(STORAGE_KEYS.session, sessionToken);
+      await secureStorage.setToken(sessionToken);
       await AsyncStorage.setItem(STORAGE_KEYS.baseUrl, origin);
       return true;
     }
 
     return false;
   } catch (err: any) {
-    // A network error means the device is unreachable
     if (err.code === 'ECONNABORTED' || err.message?.includes('Network Error')) {
       throw new Error('Device unreachable. Make sure you are connected to the Bruce WiFi AP.');
     }
@@ -275,11 +178,11 @@ export async function logout(): Promise<void> {
   } catch {
     // Ignore — we clear local state regardless
   }
-  await AsyncStorage.removeItem(STORAGE_KEYS.session);
+  await secureStorage.clearToken();
 }
 
 export async function restoreSession(): Promise<{ token: string | null; baseUrl: string | null }> {
-  const token = await AsyncStorage.getItem(STORAGE_KEYS.session);
+  const token = await secureStorage.getToken();
   const baseUrl = await AsyncStorage.getItem(STORAGE_KEYS.baseUrl);
   if (baseUrl) {
     setBaseUrl(baseUrl);
@@ -330,7 +233,7 @@ export async function saveFileContent(
 }
 
 export async function downloadFile(fs: FileSystem, filePath: string): Promise<string> {
-  const token = await AsyncStorage.getItem(STORAGE_KEYS.session);
+  const token = await secureStorage.getToken();
   const filename = filePath.split('/').pop() ?? 'download';
   const destPath = `${RNFS.DownloadDirectoryPath}/${filename}`;
   const url = `${_baseUrl}/file?fs=${fs}&name=${encodeURIComponent(filePath)}&action=download`;
@@ -418,8 +321,10 @@ export async function renameFile(
 // Command interface
 // ---------------------------------------------------------------------------
 export async function sendCommand(command: string): Promise<string> {
+  // Sanitize at the system boundary before queueing
+  const sanitized = sanitizeCommand(command);
   return commandQueue.enqueue(async () => {
-    const trimmed = command.trim();
+    const trimmed = sanitized.trim();
     const body = `cmnd=${encodeURIComponent(trimmed)}`;
 
     try {
@@ -465,7 +370,7 @@ export async function rebootDevice(): Promise<void> {
  * Returns null on network failure.
  */
 export async function getScreen(): Promise<string | null> {
-  const token = await AsyncStorage.getItem(STORAGE_KEYS.session);
+  const token = await secureStorage.getToken();
   const tempPath = `${RNFS.CachesDirectoryPath}/bruce_screen.bin`;
   try {
     const result = await RNFS.downloadFile({

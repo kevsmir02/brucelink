@@ -1,42 +1,13 @@
-export interface SystemInfo {
-  BRUCE_VERSION: string;
-  SD: StorageInfo;
-  LittleFS: StorageInfo;
-}
+// Re-export all types from the canonical firmware types module.
+// Legacy screens that import from '@/types' or '../types' continue to work.
+export type {
+  SystemInfo,
+  StorageInfo,
+  FileEntry,
+  FileSystem,
+  CommandHistoryItem,
+  RootStackParamList,
+} from './firmware';
 
-export interface StorageInfo {
-  free: string;
-  used: string;
-  total: string;
-}
-
-export interface FileEntry {
-  type: 'parent' | 'folder' | 'file';
-  name: string;
-  size: string;
-  path: string;
-}
-
-export type FileSystem = 'SD' | 'LittleFS';
-
-export interface CommandHistoryItem {
-  command: string;
-  response: string;
-  timestamp: number;
-  success: boolean;
-}
-
-export type RootStackParamList = {
-  Login: undefined;
-  Dashboard: undefined;
-  FileExplorer: { fs?: FileSystem; folder?: string };
-  FileEditor: { fs: FileSystem; filePath: string };
-  Terminal: undefined;
-  Settings: undefined;
-  Navigator: undefined;
-  UniversalKeys: undefined;
-  BadgeCloner: undefined;
-  ReconDashboard: undefined;
-  NrfInterceptor: undefined;
-  PayloadRunner: undefined;
-};
+// Re-export everything else for new consumers
+export * from './firmware';
