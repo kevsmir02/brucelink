@@ -3,14 +3,16 @@ import { View, Text, StyleSheet, FlatList, TouchableOpacity, Alert, ActivityIndi
 import { NativeStackScreenProps } from '@react-navigation/native-stack';
 import Icon from 'react-native-vector-icons/MaterialCommunityIcons';
 import { FileEntry, RootStackParamList } from '../types';
-import { COLORS } from '../utils/constants';
 import { sendCommand } from '../services/api';
+import { useTheme } from '../contexts/ThemeContext';
 import { useFileList } from '../hooks/useFileList';
 import { getExecuteCommand } from '../utils/fileHelpers';
 
 type Props = NativeStackScreenProps<RootStackParamList, 'PayloadRunner'>;
 
 export function PayloadRunnerScreen(_props: Props) {
+  const theme = useTheme();
+  const styles = makeStyles(theme);
   const { entries, isLoading, isError, refetch } = useFileList('SD', '/scripts');
 
   const executePayload = (entry: FileEntry) => {
@@ -50,13 +52,13 @@ export function PayloadRunnerScreen(_props: Props) {
         <Icon
           name={item.name.endsWith('.js') ? 'language-javascript' : 'script-text'} 
           size={24} 
-          color={COLORS.primary} 
+          color={theme.colors.primary} 
         />
         <View style={styles.fileInfo}>
           <Text style={styles.fileName}>{item.name}</Text>
           <Text style={styles.fileSize}>{item.size}</Text>
         </View>
-        <Icon name="play-circle-outline" size={24} color={COLORS.textMuted} />
+        <Icon name="play-circle-outline" size={24} color={theme.colors.textMuted} />
       </TouchableOpacity>
     );
   };
@@ -69,7 +71,7 @@ export function PayloadRunnerScreen(_props: Props) {
       </View>
 
       {isLoading ? (
-        <ActivityIndicator style={styles.loader} color={COLORS.primary} />
+        <ActivityIndicator style={styles.loader} color={theme.colors.primary} />
       ) : isError ? (
         <View style={styles.messageBox}>
           <Text style={styles.messageText}>Could not read /scripts. Ensure directory exists.</Text>
@@ -91,25 +93,27 @@ export function PayloadRunnerScreen(_props: Props) {
   );
 }
 
-const styles = StyleSheet.create({
-  root: { flex: 1, backgroundColor: COLORS.background },
-  header: { padding: 16, paddingBottom: 8 },
-  headerTitle: { color: COLORS.text, fontSize: 22, fontWeight: '700', marginBottom: 4 },
-  headerSubtitle: { color: COLORS.textMuted, fontSize: 14, lineHeight: 20 },
-  loader: { marginTop: 40 },
-  listContent: { paddingHorizontal: 16, paddingVertical: 8 },
-  fileRow: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    backgroundColor: COLORS.surface,
-    padding: 16,
-    borderRadius: 12,
-    marginBottom: 8,
-  },
-  fileInfo: { flex: 1, marginLeft: 16 },
-  fileName: { color: COLORS.text, fontSize: 16, fontWeight: '600' },
-  fileSize: { color: COLORS.textMuted, fontSize: 12, marginTop: 4 },
-  emptyText: { color: COLORS.textMuted, textAlign: 'center', marginTop: 40 },
-  messageBox: { padding: 20, alignItems: 'center' },
-  messageText: { color: COLORS.error, textAlign: 'center' },
-});
+function makeStyles(theme: ReturnType<typeof useTheme>) {
+  return StyleSheet.create({
+    root: { flex: 1, backgroundColor: theme.colors.background },
+    header: { padding: 16, paddingBottom: 8 },
+    headerTitle: { color: theme.colors.text, fontSize: 22, fontWeight: '700', marginBottom: 4 },
+    headerSubtitle: { color: theme.colors.textMuted, fontSize: 14, lineHeight: 20 },
+    loader: { marginTop: 40 },
+    listContent: { paddingHorizontal: 16, paddingVertical: 8 },
+    fileRow: {
+      flexDirection: 'row',
+      alignItems: 'center',
+      backgroundColor: theme.colors.surface,
+      padding: 16,
+      borderRadius: 12,
+      marginBottom: 8,
+    },
+    fileInfo: { flex: 1, marginLeft: 16 },
+    fileName: { color: theme.colors.text, fontSize: 16, fontWeight: '600' },
+    fileSize: { color: theme.colors.textMuted, fontSize: 12, marginTop: 4 },
+    emptyText: { color: theme.colors.textMuted, textAlign: 'center', marginTop: 40 },
+    messageBox: { padding: 20, alignItems: 'center' },
+    messageText: { color: theme.colors.error, textAlign: 'center' },
+  });
+}

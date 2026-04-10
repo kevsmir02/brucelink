@@ -2,7 +2,7 @@ import React from 'react';
 import { View, Text, TouchableOpacity, StyleSheet } from 'react-native';
 
 import type { FileSystem } from '../types';
-import { COLORS } from '../utils/constants';
+import { useTheme } from '../contexts/ThemeContext';
 
 interface FsToggleProps {
   fs: FileSystem;
@@ -10,14 +10,17 @@ interface FsToggleProps {
 }
 
 export function FsToggle({ fs, onSwitchFs }: FsToggleProps) {
+  const theme = useTheme();
+  const s = makeStyles(theme);
+
   return (
-    <View style={styles.fsToggle}>
+    <View style={s.fsToggle}>
       {(['SD', 'LittleFS'] as FileSystem[]).map(fileSystem => (
         <TouchableOpacity
           key={fileSystem}
-          style={[styles.fsTab, fs === fileSystem && styles.fsTabActive]}
+          style={[s.fsTab, fs === fileSystem && s.fsTabActive]}
           onPress={() => onSwitchFs(fileSystem)}>
-          <Text style={[styles.fsTabText, fs === fileSystem && styles.fsTabTextActive]}>
+          <Text style={[s.fsTabText, fs === fileSystem && s.fsTabTextActive]}>
             {fileSystem}
           </Text>
         </TouchableOpacity>
@@ -26,31 +29,33 @@ export function FsToggle({ fs, onSwitchFs }: FsToggleProps) {
   );
 }
 
-const styles = StyleSheet.create({
-  fsToggle: {
-    flexDirection: 'row',
-    margin: 16,
-    marginBottom: 8,
-    backgroundColor: COLORS.surface,
-    borderRadius: 10,
-    borderWidth: 1,
-    borderColor: COLORS.border,
-    overflow: 'hidden',
-  },
-  fsTab: {
-    flex: 1,
-    paddingVertical: 10,
-    alignItems: 'center',
-  },
-  fsTabActive: {
-    backgroundColor: COLORS.primary,
-  },
-  fsTabText: {
-    color: COLORS.textMuted,
-    fontWeight: '600',
-    fontSize: 14,
-  },
-  fsTabTextActive: {
-    color: COLORS.background,
-  },
-});
+function makeStyles(theme: ReturnType<typeof useTheme>) {
+  return StyleSheet.create({
+    fsToggle: {
+      flexDirection: 'row',
+      margin: 16,
+      marginBottom: 8,
+      backgroundColor: theme.colors.surface,
+      borderRadius: 10,
+      borderWidth: 1,
+      borderColor: theme.colors.border,
+      overflow: 'hidden',
+    },
+    fsTab: {
+      flex: 1,
+      paddingVertical: 10,
+      alignItems: 'center',
+    },
+    fsTabActive: {
+      backgroundColor: theme.colors.primary,
+    },
+    fsTabText: {
+      color: theme.colors.textMuted,
+      fontWeight: '600',
+      fontSize: 14,
+    },
+    fsTabTextActive: {
+      color: theme.colors.background,
+    },
+  });
+}

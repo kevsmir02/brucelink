@@ -216,7 +216,7 @@ function makeStyles(theme: ReturnType<typeof useTheme>) {
       alignItems: 'center',
       backgroundColor: 'rgba(155,81,224,0.1)',
       borderBottomWidth: 1,
-      borderBottomColor: theme.colors.primaryDim,
+      borderBottomColor: theme.colors.primaryStrong,
       paddingHorizontal: 14,
       paddingVertical: 8,
       gap: 8,

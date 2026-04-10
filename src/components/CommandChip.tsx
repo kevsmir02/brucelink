@@ -1,7 +1,7 @@
 import React from 'react';
 import { TouchableOpacity, Text, StyleSheet } from 'react-native';
 import { vibrate } from '../utils/vibrate';
-import { COLORS } from '../utils/constants';
+import { useTheme } from '../contexts/ThemeContext';
 
 interface Props {
   label: string;
@@ -9,32 +9,37 @@ interface Props {
 }
 
 export function CommandChip({ label, onPress }: Props) {
+  const theme = useTheme();
+  const s = makeStyles(theme);
+
   const handlePress = () => {
     vibrate(20);
     onPress();
   };
 
   return (
-    <TouchableOpacity style={styles.chip} onPress={handlePress} activeOpacity={0.7}>
-      <Text style={styles.label}>{label}</Text>
+    <TouchableOpacity style={s.chip} onPress={handlePress} activeOpacity={0.7}>
+      <Text style={s.label}>{label}</Text>
     </TouchableOpacity>
   );
 }
 
-const styles = StyleSheet.create({
-  chip: {
-    backgroundColor: COLORS.surface,
-    borderRadius: 20,
-    paddingHorizontal: 12,
-    paddingVertical: 6,
-    marginRight: 8,
-    borderWidth: 1,
-    borderColor: COLORS.primaryDim,
-  },
-  label: {
-    color: COLORS.primary,
-    fontSize: 12,
-    fontFamily: 'Courier New',
-    fontWeight: '600',
-  },
-});
+function makeStyles(theme: ReturnType<typeof useTheme>) {
+  return StyleSheet.create({
+    chip: {
+      backgroundColor: theme.colors.surface,
+      borderRadius: 20,
+      paddingHorizontal: 12,
+      paddingVertical: 6,
+      marginRight: 8,
+      borderWidth: 1,
+      borderColor: theme.colors.primaryStrong,
+    },
+    label: {
+      color: theme.colors.primary,
+      fontSize: 12,
+      fontFamily: 'Courier New',
+      fontWeight: '600',
+    },
+  });
+}

@@ -26,7 +26,7 @@ describe('mock access point server', () => {
       loginOptions('username=admin&password=admin'),
     );
 
-    expect(response.status).toBe(302);
+    expect(response.status).toBe(200);
     expect(response.headers.get('set-cookie')).toContain('BRUCESESSION=');
   });
 

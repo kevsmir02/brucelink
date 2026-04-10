@@ -15,7 +15,8 @@ import Icon from 'react-native-vector-icons/MaterialCommunityIcons';
 
 import { RootStackParamList } from '../types';
 import { saveFileContent, sendCommand } from '../services/api';
-import { COLORS, FONTS } from '../utils/constants';
+import { FONTS } from '../utils/constants';
+import { useTheme } from '../contexts/ThemeContext';
 import { isExecutable, getExecuteCommand, getFileExtension } from '../utils/fileHelpers';
 import { useFileContent } from '../hooks/useFileContent';
 
@@ -35,24 +36,26 @@ function EditorHeaderRight({
   onSave: () => void;
   onRun: () => void;
 }) {
+  const theme = useTheme();
+  const s = makeStyles(theme);
   return (
-    <View style={styles.headerActions}>
+    <View style={s.headerActions}>
       {executable && (
-        <TouchableOpacity onPress={onRun} style={styles.headerBtn}>
-          <Icon name="play" size={22} color={COLORS.primary} />
+        <TouchableOpacity onPress={onRun} style={s.headerBtn}>
+          <Icon name="play" size={22} color={theme.colors.primary} />
         </TouchableOpacity>
       )}
       <TouchableOpacity
         onPress={onSave}
-        style={[styles.headerBtn, !isDirty && styles.headerBtnDisabled]}
+        style={[s.headerBtn, !isDirty && s.headerBtnDisabled]}
         disabled={!isDirty || saving}>
         {saving ? (
-          <ActivityIndicator size="small" color={COLORS.primary} />
+          <ActivityIndicator size="small" color={theme.colors.primary} />
         ) : (
           <Icon
             name="content-save-outline"
             size={22}
-            color={isDirty ? COLORS.primary : COLORS.textMuted}
+            color={isDirty ? theme.colors.primary : theme.colors.textMuted}
           />
         )}
       </TouchableOpacity>
@@ -61,6 +64,8 @@ function EditorHeaderRight({
 }
 
 export function FileEditorScreen({ navigation, route }: Props) {
+  const theme = useTheme();
+  const s = makeStyles(theme);
   const { fs, filePath } = route.params;
   const fileName = filePath.split('/').pop() ?? filePath;
   const ext = getFileExtension(fileName);
@@ -163,35 +168,35 @@ export function FileEditorScreen({ navigation, route }: Props) {
 
   if (isLoading) {
     return (
-      <View style={styles.center}>
-        <ActivityIndicator color={COLORS.primary} size="large" />
-        <Text style={styles.loadingText}>Loading {fileName}...</Text>
+      <View style={s.center}>
+        <ActivityIndicator color={theme.colors.primary} size="large" />
+        <Text style={s.loadingText}>Loading {fileName}...</Text>
       </View>
     );
   }
 
   if (isError) {
     return (
-      <View style={styles.center}>
-        <Icon name="alert-circle-outline" size={48} color={COLORS.error} />
-        <Text style={styles.errorText}>Could not load file content.</Text>
+      <View style={s.center}>
+        <Icon name="alert-circle-outline" size={48} color={theme.colors.error} />
+        <Text style={s.errorText}>Could not load file content.</Text>
       </View>
     );
   }
 
   return (
-    <KeyboardAvoidingView style={styles.root} behavior="padding">
-      <View style={styles.metaBar}>
-        <Text style={styles.metaPath} numberOfLines={1}>{filePath}</Text>
-        <View style={styles.metaBadges}>
-          {ext && <Text style={styles.badge}>{ext.toUpperCase()}</Text>}
-          {isDirty && <Text style={[styles.badge, styles.badgeDirty]}>MODIFIED</Text>}
+    <KeyboardAvoidingView style={s.root} behavior="padding">
+      <View style={s.metaBar}>
+        <Text style={s.metaPath} numberOfLines={1}>{filePath}</Text>
+        <View style={s.metaBadges}>
+          {ext && <Text style={s.badge}>{ext.toUpperCase()}</Text>}
+          {isDirty && <Text style={[s.badge, s.badgeDirty]}>MODIFIED</Text>}
         </View>
       </View>
 
       <TextInput
         ref={inputRef}
-        style={styles.editor}
+        style={s.editor}
         multiline
         value={content}
         onChangeText={setContent}
@@ -202,31 +207,32 @@ export function FileEditorScreen({ navigation, route }: Props) {
         scrollEnabled
         keyboardType="default"
         placeholder="Empty file..."
-        placeholderTextColor={COLORS.textMuted}
+        placeholderTextColor={theme.colors.textMuted}
       />
     </KeyboardAvoidingView>
   );
 }
 
-const styles = StyleSheet.create({
-  root: {
-    flex: 1,
-    backgroundColor: COLORS.background,
-  },
+function makeStyles(theme: ReturnType<typeof useTheme>) {
+  return StyleSheet.create({
+    root: {
+      flex: 1,
+      backgroundColor: theme.colors.background,
+    },
   center: {
     flex: 1,
     alignItems: 'center',
     justifyContent: 'center',
-    backgroundColor: COLORS.background,
+    backgroundColor: theme.colors.background,
     padding: 24,
   },
   loadingText: {
-    color: COLORS.textMuted,
+    color: theme.colors.textMuted,
     marginTop: 16,
     fontSize: 14,
   },
   errorText: {
-    color: COLORS.error,
+    color: theme.colors.error,
     marginTop: 16,
     fontSize: 14,
     textAlign: 'center',
@@ -243,17 +249,17 @@ const styles = StyleSheet.create({
     opacity: 0.4,
   },
   metaBar: {
-    backgroundColor: COLORS.surface,
+    backgroundColor: theme.colors.surface,
     paddingHorizontal: 16,
     paddingVertical: 8,
     borderBottomWidth: 1,
-    borderBottomColor: COLORS.border,
+    borderBottomColor: theme.colors.border,
     flexDirection: 'row',
     alignItems: 'center',
     justifyContent: 'space-between',
   },
   metaPath: {
-    color: COLORS.textMuted,
+    color: theme.colors.textMuted,
     fontSize: 12,
     fontFamily: 'Courier New',
     flex: 1,
@@ -264,8 +270,8 @@ const styles = StyleSheet.create({
     gap: 6,
   },
   badge: {
-    backgroundColor: COLORS.background,
-    color: COLORS.textMuted,
+    backgroundColor: theme.colors.background,
+    color: theme.colors.textMuted,
     fontSize: 10,
     fontWeight: '700',
     letterSpacing: 0.5,
@@ -273,19 +279,20 @@ const styles = StyleSheet.create({
     paddingVertical: 2,
     borderRadius: 4,
     borderWidth: 1,
-    borderColor: COLORS.border,
+    borderColor: theme.colors.border,
   },
   badgeDirty: {
-    color: COLORS.warning,
-    borderColor: COLORS.warning,
+    color: theme.colors.warning,
+    borderColor: theme.colors.warning,
   },
   editor: {
     flex: 1,
-    color: COLORS.text,
+    color: theme.colors.text,
     fontFamily: 'Courier New',
     fontSize: FONTS.monoSize,
     padding: 16,
     lineHeight: 22,
     textAlignVertical: 'top',
   },
-});
+  });
+}

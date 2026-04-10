@@ -108,12 +108,12 @@ export function DashboardScreen({ navigation }: Props) {
           <QuickAction
             icon="radio-tower"
             label="Sub-GHz"
-            onPress={() => navigation.navigate('PayloadRunner')}
+            onPress={() => navigation.navigate('SubGhz')}
           />
           <QuickAction
             icon="remote"
             label="Infrared"
-            onPress={() => navigation.navigate('PayloadRunner')}
+            onPress={() => navigation.navigate('Infrared')}
           />
         </View>
 
@@ -123,12 +123,12 @@ export function DashboardScreen({ navigation }: Props) {
           <QuickAction
             icon="wifi"
             label="WiFi Attack"
-            onPress={() => navigation.navigate('PayloadRunner')}
+            onPress={() => navigation.navigate('WifiAttack')}
           />
           <QuickAction
             icon="bluetooth"
             label="BLE"
-            onPress={() => navigation.navigate('PayloadRunner')}
+            onPress={() => navigation.navigate('Ble')}
           />
         </View>
 
@@ -205,13 +205,13 @@ function makeStyles(theme: ReturnType<typeof useTheme>) {
     },
     bannerTitle: {
       color: theme.colors.text,
-      fontSize: theme.typography.sizes.lg,
+      fontSize: 18,
       fontWeight: '700',
       letterSpacing: 1,
     },
     version: {
       color: theme.colors.primary,
-      fontSize: theme.typography.sizes.sm,
+      fontSize: 13,
       marginTop: theme.spacing.sm,
       fontFamily: theme.typography.mono,
     },
@@ -242,7 +242,7 @@ function makeStyles(theme: ReturnType<typeof useTheme>) {
     },
     errorText: {
       color: theme.colors.error,
-      fontSize: theme.typography.sizes.sm,
+      fontSize: 13,
     },
     card: {
       backgroundColor: theme.colors.surface,
@@ -260,7 +260,7 @@ function makeStyles(theme: ReturnType<typeof useTheme>) {
     },
     divider: {
       height: 1,
-      backgroundColor: 'rgba(255,255,255,0.06)',
+      backgroundColor: theme.colors.border,
       marginVertical: theme.spacing.md,
     },
     grid: {
@@ -270,7 +270,7 @@ function makeStyles(theme: ReturnType<typeof useTheme>) {
     },
     footer: {
       color: theme.colors.textMuted,
-      fontSize: theme.typography.sizes.xs,
+      fontSize: 11,
       textAlign: 'center',
       marginTop: theme.spacing.md,
     },

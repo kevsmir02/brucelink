@@ -1,7 +1,7 @@
 import React from 'react';
 import { Modal, TouchableOpacity, StyleSheet, Image, Text } from 'react-native';
 
-import { COLORS } from '../utils/constants';
+import { useTheme } from '../contexts/ThemeContext';
 
 interface ImagePreviewModalProps {
   visible: boolean;
@@ -16,39 +16,44 @@ export function ImagePreviewModal({
   previewToken,
   onClose,
 }: ImagePreviewModalProps) {
+  const theme = useTheme();
+  const s = makeStyles(theme);
+
   return (
     <Modal visible={visible} transparent animationType="fade" onRequestClose={onClose}>
-      <TouchableOpacity style={styles.previewOverlay} activeOpacity={1} onPress={onClose}>
+      <TouchableOpacity style={s.previewOverlay} activeOpacity={1} onPress={onClose}>
         {previewUri && (
           <Image
             source={{
               uri: previewUri,
               headers: previewToken ? { Cookie: `BRUCESESSION=${previewToken}` } : undefined,
             }}
-            style={styles.previewImage}
+            style={s.previewImage}
             resizeMode="contain"
           />
         )}
-        <Text style={styles.previewHint}>Tap to close</Text>
+        <Text style={s.previewHint}>Tap to close</Text>
       </TouchableOpacity>
     </Modal>
   );
 }
 
-const styles = StyleSheet.create({
-  previewOverlay: {
-    flex: 1,
-    backgroundColor: 'rgba(0,0,0,0.92)',
-    alignItems: 'center',
-    justifyContent: 'center',
-  },
-  previewImage: {
-    width: '90%',
-    height: '80%',
-  },
-  previewHint: {
-    color: COLORS.textMuted,
-    marginTop: 16,
-    fontSize: 12,
-  },
-});
+function makeStyles(theme: ReturnType<typeof useTheme>) {
+  return StyleSheet.create({
+    previewOverlay: {
+      flex: 1,
+      backgroundColor: 'rgba(0,0,0,0.92)',
+      alignItems: 'center',
+      justifyContent: 'center',
+    },
+    previewImage: {
+      width: '90%',
+      height: '80%',
+    },
+    previewHint: {
+      color: theme.colors.textMuted,
+      marginTop: 16,
+      fontSize: 12,
+    },
+  });
+}

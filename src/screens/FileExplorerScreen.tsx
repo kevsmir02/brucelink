@@ -587,7 +587,7 @@ function makeStyles(theme: ReturnType<typeof useTheme>) {
       backgroundColor: 'rgba(255,68,68,0.1)',
       borderRadius: theme.radius.md,
       borderWidth: 1,
-      borderColor: theme.colors.errorDim,
+      borderColor: theme.colors.error,
       margin: theme.spacing.md,
       padding: 12,
     },
@@ -618,7 +618,7 @@ function makeStyles(theme: ReturnType<typeof useTheme>) {
       alignItems: 'center',
       minWidth: 200,
       borderWidth: 1,
-      borderColor: theme.colors.primaryDim,
+      borderColor: theme.colors.border,
     },
     uploadLabel: {
       color: theme.colors.text,
@@ -640,4 +640,3 @@ function makeStyles(theme: ReturnType<typeof useTheme>) {
     },
   });
 }
-});

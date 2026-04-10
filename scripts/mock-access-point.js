@@ -151,20 +151,21 @@ function createMockAccessPointServer(options = {}) {
       const isValid = Boolean(form.username) && Boolean(form.password);
 
       if (!isValid) {
-        res.writeHead(302, {
-          Location: '/login?failed=1',
+        res.writeHead(200, {
+          'Content-Type': 'text/plain',
+          'Location': '/login?failed=1',
           'Set-Cookie': 'BRUCESESSION=; Max-Age=0; Path=/',
         });
-        res.end();
+        res.end('Login failed');
         return;
       }
 
-      res.writeHead(302, {
-        Location: '/',
+      res.writeHead(200, {
+        'Content-Type': 'text/plain',
         'Set-Cookie': `BRUCESESSION=${sessionToken}; Path=/; HttpOnly`,
         'x-bruce-session': sessionToken,
       });
-      res.end();
+      res.end('OK');
       return;
     }
 
@@ -412,6 +413,7 @@ if (require.main === module) {
     .then(() => {
       console.log(`Mock Bruce AP running at ${mockServer.url}`);
       console.log(`Use this URL in Android emulator login: ${mockServer.emulatorUrl}`);
+      console.log(`Credentials: any non-empty username / any non-empty password`);
     })
     .catch((error) => {
       console.error(`Failed to start mock AP: ${error.message}`);

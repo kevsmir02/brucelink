@@ -8,7 +8,7 @@ import {
   StyleSheet,
   KeyboardAvoidingView,
 } from 'react-native';
-import { COLORS } from '../utils/constants';
+import { useTheme } from '../contexts/ThemeContext';
 
 interface Props {
   visible: boolean;
@@ -29,6 +29,8 @@ export function PromptModal({
   onCancel,
   confirmLabel = 'OK',
 }: Props) {
+  const theme = useTheme();
+  const s = makeStyles(theme);
   const [value, setValue] = useState(defaultValue);
   const inputRef = useRef<TextInput>(null);
 
@@ -51,31 +53,31 @@ export function PromptModal({
       transparent
       animationType="fade"
       onRequestClose={onCancel}>
-      <KeyboardAvoidingView style={styles.overlay} behavior="padding">
-        <View style={styles.dialog}>
-          <Text style={styles.title}>{title}</Text>
+      <KeyboardAvoidingView style={s.overlay} behavior="padding">
+        <View style={s.dialog}>
+          <Text style={s.title}>{title}</Text>
           <TextInput
             ref={inputRef}
-            style={styles.input}
+            style={s.input}
             value={value}
             onChangeText={setValue}
             placeholder={placeholder}
-            placeholderTextColor={COLORS.textMuted}
+            placeholderTextColor={theme.colors.textMuted}
             autoCapitalize="none"
             autoCorrect={false}
             onSubmitEditing={handleConfirm}
             returnKeyType="done"
             selectTextOnFocus
           />
-          <View style={styles.buttons}>
-            <TouchableOpacity style={styles.cancelBtn} onPress={onCancel}>
-              <Text style={styles.cancelText}>Cancel</Text>
+          <View style={s.buttons}>
+            <TouchableOpacity style={s.cancelBtn} onPress={onCancel}>
+              <Text style={s.cancelText}>Cancel</Text>
             </TouchableOpacity>
             <TouchableOpacity
-              style={[styles.confirmBtn, !value.trim() && styles.confirmBtnDisabled]}
+              style={[s.confirmBtn, !value.trim() && s.confirmBtnDisabled]}
               onPress={handleConfirm}
               disabled={!value.trim()}>
-              <Text style={styles.confirmText}>{confirmLabel}</Text>
+              <Text style={s.confirmText}>{confirmLabel}</Text>
             </TouchableOpacity>
           </View>
         </View>
@@ -84,69 +86,71 @@ export function PromptModal({
   );
 }
 
-const styles = StyleSheet.create({
-  overlay: {
-    flex: 1,
-    backgroundColor: 'rgba(0,0,0,0.75)',
-    alignItems: 'center',
-    justifyContent: 'center',
-    padding: 32,
-  },
-  dialog: {
-    width: '100%',
-    backgroundColor: COLORS.surface,
-    borderRadius: 14,
-    padding: 20,
-    borderWidth: 1,
-    borderColor: COLORS.border,
-  },
-  title: {
-    color: COLORS.text,
-    fontSize: 16,
-    fontWeight: '700',
-    marginBottom: 16,
-  },
-  input: {
-    backgroundColor: COLORS.background,
-    borderWidth: 1,
-    borderColor: COLORS.border,
-    borderRadius: 8,
-    color: COLORS.text,
-    paddingHorizontal: 14,
-    paddingVertical: 11,
-    fontSize: 15,
-    fontFamily: 'Courier New',
-    marginBottom: 20,
-  },
-  buttons: {
-    flexDirection: 'row',
-    justifyContent: 'flex-end',
-    gap: 12,
-  },
-  cancelBtn: {
-    paddingHorizontal: 18,
-    paddingVertical: 10,
-    borderRadius: 8,
-    borderWidth: 1,
-    borderColor: COLORS.border,
-  },
-  cancelText: {
-    color: COLORS.textMuted,
-    fontSize: 14,
-    fontWeight: '600',
-  },
-  confirmBtn: {
-    paddingHorizontal: 18,
-    paddingVertical: 10,
-    borderRadius: 8,
-    backgroundColor: COLORS.primary,
-  },
-  confirmBtnDisabled: {
-    opacity: 0.4,
-  },
-  confirmText: {
-    color: COLORS.background,
-    fontSize: 14,
-    fontWeight: '700',
-  },
-});
+function makeStyles(theme: ReturnType<typeof useTheme>) {
+  return StyleSheet.create({
+    overlay: {
+      flex: 1,
+      backgroundColor: theme.colors.overlay,
+      alignItems: 'center',
+      justifyContent: 'center',
+      padding: 32,
+    },
+    dialog: {
+      width: '100%',
+      backgroundColor: theme.colors.surface,
+      borderRadius: 14,
+      padding: 20,
+      borderWidth: 1,
+      borderColor: theme.colors.border,
+    },
+    title: {
+      color: theme.colors.text,
+      fontSize: 16,
+      fontWeight: '700',
+      marginBottom: 16,
+    },
+    input: {
+      backgroundColor: theme.colors.background,
+      borderWidth: 1,
+      borderColor: theme.colors.border,
+      borderRadius: 8,
+      color: theme.colors.text,
+      paddingHorizontal: 14,
+      paddingVertical: 11,
+      fontSize: 15,
+      fontFamily: 'Courier New',
+      marginBottom: 20,
+    },
+    buttons: {
+      flexDirection: 'row',
+      justifyContent: 'flex-end',
+      gap: 12,
+    },
+    cancelBtn: {
+      paddingHorizontal: 18,
+      paddingVertical: 10,
+      borderRadius: 8,
+      borderWidth: 1,
+      borderColor: theme.colors.border,
+    },
+    cancelText: {
+      color: theme.colors.textMuted,
+      fontSize: 14,
+      fontWeight: '600',
+    },
+    confirmBtn: {
+      paddingHorizontal: 18,
+      paddingVertical: 10,
+      borderRadius: 8,
+      backgroundColor: theme.colors.primary,
+    },
+    confirmBtnDisabled: {
+      opacity: 0.4,
+    },
+    confirmText: {
+      color: theme.colors.background,
+      fontSize: 14,
+      fontWeight: '700',
+    },
+  });
+}

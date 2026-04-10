@@ -19,7 +19,7 @@ import { vibrate } from '../utils/vibrate';
 import { setImmersiveNavigation } from '../utils/bruceSystemUi';
 import type { RootStackParamList } from '../types';
 import { sendCommand, getScreen } from '../services/api';
-import { COLORS } from '../utils/constants';
+import { useTheme } from '../contexts/ThemeContext';
 import { navigatorWebSource } from '../assets/navigatorWebSource';
 
 type Props = NativeStackScreenProps<RootStackParamList, 'Navigator'>;
@@ -65,6 +65,8 @@ interface NavButtonProps {
 }
 
 function NavButton({ icon, label, onPress, disabled, isCenter }: NavButtonProps) {
+  const theme = useTheme();
+  const styles = makeStyles(theme);
   return (
     <TouchableOpacity
       style={[styles.navBtn, isCenter && styles.navBtnCenter, disabled && styles.navBtnDisabled]}
@@ -74,7 +76,7 @@ function NavButton({ icon, label, onPress, disabled, isCenter }: NavButtonProps)
       <Icon
         name={icon}
         size={isCenter ? 32 : 24}
-        color={disabled ? COLORS.border : isCenter ? COLORS.primary : COLORS.text}
+        color={disabled ? theme.colors.border : isCenter ? theme.colors.primary : theme.colors.text}
       />
       <Text
         style={[
@@ -92,6 +94,8 @@ function NavButton({ icon, label, onPress, disabled, isCenter }: NavButtonProps)
 // NavigatorScreen
 // ---------------------------------------------------------------------------
 export function NavigatorWebCanvas(_props: Props) {
+  const theme = useTheme();
+  const styles = makeStyles(theme);
   const insets = useSafeAreaInsets();
   const isFocused = useIsFocused();
   const webViewRef        = useRef<WebView>(null);
@@ -210,16 +214,16 @@ export function NavigatorWebCanvas(_props: Props) {
           onPress={fetchAndRender}
           disabled={loading}>
           {loading ? (
-            <ActivityIndicator size="small" color={COLORS.primary} />
+            <ActivityIndicator size="small" color={theme.colors.primary} />
           ) : (
-            <Icon name="refresh" size={20} color={COLORS.primary} />
+            <Icon name="refresh" size={20} color={theme.colors.primary} />
           )}
         </TouchableOpacity>
       </View>
 
       {wifiWarning && (
         <View style={styles.wifiWarning}>
-          <Icon name="alert" size={14} color="#f59e0b" />
+          <Icon name="alert" size={14} color={theme.colors.warning} />
           <Text style={styles.wifiWarningText}>
             WiFi features will disconnect you from the AP after configuration
           </Text>
@@ -250,7 +254,7 @@ export function NavigatorWebCanvas(_props: Props) {
             />
             {screenHint != null && (
               <View style={styles.screenHintOverlay} pointerEvents="none">
-                <Icon name="wifi-off" size={28} color={COLORS.textMuted} />
+                <Icon name="wifi-off" size={28} color={theme.colors.textMuted} />
                 <Text style={styles.screenHintTitle}>No screen data</Text>
                 <Text style={styles.screenHintBody}>
                   Could not download /getscreen. Connect the phone/emulator to the Bruce Wi-Fi access
@@ -260,7 +264,7 @@ export function NavigatorWebCanvas(_props: Props) {
             )}
             {navigating && (
               <View style={styles.navigatingOverlay}>
-                <ActivityIndicator size="small" color={COLORS.primary} />
+                <ActivityIndicator size="small" color={theme.colors.primary} />
               </View>
             )}
           </View>
@@ -294,193 +298,195 @@ export function NavigatorWebCanvas(_props: Props) {
 // ---------------------------------------------------------------------------
 const DPAD_RAIL_WIDTH = 212;
 
-const styles = StyleSheet.create({
-  root: {
-    flex: 1,
-    backgroundColor: COLORS.background,
-  },
+function makeStyles(theme: ReturnType<typeof useTheme>) {
+  return StyleSheet.create({
+    root: {
+      flex: 1,
+      backgroundColor: theme.colors.background,
+    },
 
-  bodyRow: {
-    flex: 1,
-    flexDirection: 'row',
-    minHeight: 0,
-  },
-  canvasColumn: {
-    flex: 1,
-    minWidth: 0,
-    minHeight: 0,
-  },
-  dpadRail: {
-    width: DPAD_RAIL_WIDTH,
-    minHeight: 0,
-    borderLeftWidth: StyleSheet.hairlineWidth,
-    borderLeftColor: COLORS.border,
-    backgroundColor: COLORS.surfaceAlt,
-    justifyContent: 'center',
-    paddingHorizontal: 10,
-  },
+    bodyRow: {
+      flex: 1,
+      flexDirection: 'row',
+      minHeight: 0,
+    },
+    canvasColumn: {
+      flex: 1,
+      minWidth: 0,
+      minHeight: 0,
+    },
+    dpadRail: {
+      width: DPAD_RAIL_WIDTH,
+      minHeight: 0,
+      borderLeftWidth: StyleSheet.hairlineWidth,
+      borderLeftColor: theme.colors.border,
+      backgroundColor: theme.colors.surfaceAlt,
+      justifyContent: 'center',
+      paddingHorizontal: 10,
+    },
 
-  /* Top bar */
-  topBar: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    paddingHorizontal: 14,
-    paddingBottom: 10,
-    borderBottomWidth: StyleSheet.hairlineWidth,
-    borderBottomColor: COLORS.border,
-    gap: 10,
-  },
-  topLabel: {
-    color: COLORS.textMuted,
-    fontSize: 11,
-    fontWeight: '600',
-    textTransform: 'uppercase',
-    letterSpacing: 0.5,
-  },
-  reloadScroll: {
-    flex: 1,
-  },
-  reloadScrollContent: {
-    alignItems: 'center',
-    gap: 6,
-  },
-  chip: {
-    paddingHorizontal: 12,
-    paddingVertical: 6,
-    borderRadius: 14,
-    borderWidth: StyleSheet.hairlineWidth,
-    borderColor: COLORS.border,
-    backgroundColor: COLORS.surface,
-  },
-  chipActive: {
-    backgroundColor: COLORS.primary,
-    borderColor: COLORS.primary,
-  },
-  chipText: {
-    color: COLORS.textMuted,
-    fontSize: 12,
-    fontWeight: '500',
-  },
-  chipTextActive: {
-    color: '#fff',
-    fontWeight: '700',
-  },
-  reloadBtn: {
-    width: 36,
-    height: 36,
-    borderRadius: 18,
-    alignItems: 'center',
-    justifyContent: 'center',
-    backgroundColor: COLORS.surface,
-    borderWidth: 1,
-    borderColor: COLORS.border,
-  },
+    /* Top bar */
+    topBar: {
+      flexDirection: 'row',
+      alignItems: 'center',
+      paddingHorizontal: 14,
+      paddingBottom: 10,
+      borderBottomWidth: StyleSheet.hairlineWidth,
+      borderBottomColor: theme.colors.border,
+      gap: 10,
+    },
+    topLabel: {
+      color: theme.colors.textMuted,
+      fontSize: 11,
+      fontWeight: '600',
+      textTransform: 'uppercase',
+      letterSpacing: 0.5,
+    },
+    reloadScroll: {
+      flex: 1,
+    },
+    reloadScrollContent: {
+      alignItems: 'center',
+      gap: 6,
+    },
+    chip: {
+      paddingHorizontal: 12,
+      paddingVertical: 6,
+      borderRadius: 14,
+      borderWidth: StyleSheet.hairlineWidth,
+      borderColor: theme.colors.border,
+      backgroundColor: theme.colors.surface,
+    },
+    chipActive: {
+      backgroundColor: theme.colors.primary,
+      borderColor: theme.colors.primary,
+    },
+    chipText: {
+      color: theme.colors.textMuted,
+      fontSize: 12,
+      fontWeight: '500',
+    },
+    chipTextActive: {
+      color: '#fff',
+      fontWeight: '700',
+    },
+    reloadBtn: {
+      width: 36,
+      height: 36,
+      borderRadius: 18,
+      alignItems: 'center',
+      justifyContent: 'center',
+      backgroundColor: theme.colors.surface,
+      borderWidth: 1,
+      borderColor: theme.colors.border,
+    },
 
-  /* WiFi warning */
-  wifiWarning: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    gap: 6,
-    paddingHorizontal: 14,
-    paddingVertical: 6,
-    backgroundColor: 'rgba(245,158,11,0.12)',
-    borderBottomWidth: 1,
-    borderBottomColor: 'rgba(245,158,11,0.3)',
-  },
-  wifiWarningText: {
-    color: '#f59e0b',
-    fontSize: 11,
-    flex: 1,
-    flexWrap: 'wrap',
-  },
+    /* WiFi warning */
+    wifiWarning: {
+      flexDirection: 'row',
+      alignItems: 'center',
+      gap: 6,
+      paddingHorizontal: 14,
+      paddingVertical: 6,
+      backgroundColor: 'rgba(245,158,11,0.12)',
+      borderBottomWidth: 1,
+      borderBottomColor: 'rgba(245,158,11,0.3)',
+    },
+    wifiWarningText: {
+      color: theme.colors.warning,
+      fontSize: 11,
+      flex: 1,
+      flexWrap: 'wrap',
+    },
 
-  /* Canvas area */
-  screenArea: {
-    flex: 1,
-    backgroundColor: '#000',
-    position: 'relative',
-    minHeight: 0,
-  },
-  webView: {
-    flex: 1,
-    backgroundColor: '#000',
-  },
-  screenHintOverlay: {
-    ...StyleSheet.absoluteFillObject,
-    backgroundColor: 'rgba(0,0,0,0.92)',
-    justifyContent: 'center',
-    alignItems: 'center',
-    paddingHorizontal: 24,
-    gap: 10,
-  },
-  screenHintTitle: {
-    color: COLORS.text,
-    fontSize: 16,
-    fontWeight: '700',
-    textAlign: 'center',
-  },
-  screenHintBody: {
-    color: COLORS.textMuted,
-    fontSize: 13,
-    lineHeight: 19,
-    textAlign: 'center',
-  },
-  navigatingOverlay: {
-    ...StyleSheet.absoluteFillObject,
-    alignItems: 'flex-end',
-    justifyContent: 'flex-end',
-    padding: 10,
-    pointerEvents: 'none',
-  },
+    /* Canvas area — intentionally black (device display rendering) */
+    screenArea: {
+      flex: 1,
+      backgroundColor: '#000',
+      position: 'relative',
+      minHeight: 0,
+    },
+    webView: {
+      flex: 1,
+      backgroundColor: '#000',
+    },
+    screenHintOverlay: {
+      ...StyleSheet.absoluteFillObject,
+      backgroundColor: 'rgba(0,0,0,0.92)',
+      justifyContent: 'center',
+      alignItems: 'center',
+      paddingHorizontal: 24,
+      gap: 10,
+    },
+    screenHintTitle: {
+      color: theme.colors.text,
+      fontSize: 16,
+      fontWeight: '700',
+      textAlign: 'center',
+    },
+    screenHintBody: {
+      color: theme.colors.textMuted,
+      fontSize: 13,
+      lineHeight: 19,
+      textAlign: 'center',
+    },
+    navigatingOverlay: {
+      ...StyleSheet.absoluteFillObject,
+      alignItems: 'flex-end',
+      justifyContent: 'flex-end',
+      padding: 10,
+      pointerEvents: 'none',
+    },
 
-  /* D-pad (right rail, landscape-friendly) */
-  dpad: {
-    flex: 1,
-    paddingVertical: 12,
-    gap: 10,
-    justifyContent: 'center',
-  },
-  dpadRow: {
-    flexDirection: 'row',
-    justifyContent: 'center',
-    gap: 8,
-    alignItems: 'stretch',
-  },
-  navBtn: {
-    flex: 1,
-    minWidth: 52,
-    alignItems: 'center',
-    justifyContent: 'center',
-    paddingVertical: 12,
-    paddingHorizontal: 4,
-    borderRadius: 12,
-    backgroundColor: COLORS.background,
-    borderWidth: StyleSheet.hairlineWidth,
-    borderColor: 'rgba(255,255,255,0.08)',
-    gap: 4,
-    minHeight: 58,
-  },
-  navBtnCenter: {
-    backgroundColor: 'rgba(168,85,247,0.12)',
-    borderColor: COLORS.primary,
-    borderWidth: 1,
-  },
-  navBtnDisabled: {
-    opacity: 0.35,
-  },
-  navBtnLabel: {
-    color: COLORS.textMuted,
-    fontSize: 10,
-    fontWeight: '500',
-    textTransform: 'uppercase',
-    letterSpacing: 0.3,
-  },
-  navBtnLabelCenter: {
-    color: COLORS.primary,
-  },
-  navBtnLabelDisabled: {
-    color: COLORS.border,
-  },
-});
+    /* D-pad (right rail, landscape-friendly) */
+    dpad: {
+      flex: 1,
+      paddingVertical: 12,
+      gap: 10,
+      justifyContent: 'center',
+    },
+    dpadRow: {
+      flexDirection: 'row',
+      justifyContent: 'center',
+      gap: 8,
+      alignItems: 'stretch',
+    },
+    navBtn: {
+      flex: 1,
+      minWidth: 52,
+      alignItems: 'center',
+      justifyContent: 'center',
+      paddingVertical: 12,
+      paddingHorizontal: 4,
+      borderRadius: 12,
+      backgroundColor: theme.colors.background,
+      borderWidth: StyleSheet.hairlineWidth,
+      borderColor: theme.colors.border,
+      gap: 4,
+      minHeight: 58,
+    },
+    navBtnCenter: {
+      backgroundColor: 'rgba(168,85,247,0.12)',
+      borderColor: theme.colors.primary,
+      borderWidth: 1,
+    },
+    navBtnDisabled: {
+      opacity: 0.35,
+    },
+    navBtnLabel: {
+      color: theme.colors.textMuted,
+      fontSize: 10,
+      fontWeight: '500',
+      textTransform: 'uppercase',
+      letterSpacing: 0.3,
+    },
+    navBtnLabelCenter: {
+      color: theme.colors.primary,
+    },
+    navBtnLabelDisabled: {
+      color: theme.colors.border,
+    },
+  });
+}
 
 export default NavigatorWebCanvas;
