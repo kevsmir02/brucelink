@@ -1,10 +1,6 @@
-import { Image } from 'react-native';
-
-const navigatorHtmlAsset = require('./navigator.html');
-const resolvedNavigatorHtmlAsset = Image.resolveAssetSource(navigatorHtmlAsset);
-
-const navigatorHtmlUri = resolvedNavigatorHtmlAsset?.uri ?? 'about:blank';
+import { navigatorHtml } from './navigatorHtml';
 
 export const navigatorWebSource = {
-  uri: navigatorHtmlUri,
+  html: navigatorHtml,
+  baseUrl: 'about:blank',
 };

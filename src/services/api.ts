@@ -80,41 +80,7 @@ apiClient.interceptors.response.use(
   },
 );
 
-// ---------------------------------------------------------------------------
-// Auth helpers
-// ---------------------------------------------------------------------------
 
-/** AxiosHeaders vs plain object — RN/XHR may expose Set-Cookie oddly. */
-function getResponseHeader(response: { headers: unknown }, name: string): string | string[] | undefined {
-  const headers = response.headers as Record<string, unknown> & { get?: (n: string) => unknown };
-  const lower = name.toLowerCase();
-  if (typeof headers.get === 'function') {
-    const v = headers.get(name) ?? headers.get(lower);
-    if (v != null) {
-      return v as string | string[];
-    }
-  }
-  const direct = headers[lower] ?? headers[name];
-  if (direct != null) {
-    return direct as string | string[];
-  }
-  return undefined;
-}
-
-function extractBruceSessionToken(headers: unknown): string | null {
-  const raw = getResponseHeader({ headers }, 'set-cookie');
-  if (raw == null) {
-    return null;
-  }
-  const lines = Array.isArray(raw) ? raw : [raw];
-  for (const line of lines) {
-    const m = String(line).match(/BRUCESESSION=([^;,\s]+)/);
-    if (m) {
-      return m[1];
-    }
-  }
-  return null;
-}
 
 export async function login(
   baseUrl: string,
@@ -127,27 +93,43 @@ export async function login(
   const origin = baseUrl.replace(/\/$/, '');
 
   try {
-    // Step 1: Axios POST — firmware returns 302 with Set-Cookie header.
-    const response = await apiClient.post('/login', body, {
+    // Use fetch() with credentials:'include' instead of axios.
+    // This tells Android OkHttp to process Set-Cookie headers during
+    // the 302 redirect, storing the BRUCESESSION cookie in the system
+    // cookie jar — exactly like a browser does.
+    // (axios with withCredentials:false prevents cookie storage entirely)
+    const response = await fetch(`${origin}/login`, {
+      method: 'POST',
       headers: { 'Content-Type': 'application/x-www-form-urlencoded' },
-      maxRedirects: 0,
-      validateStatus: (status) => status >= 200 && status < 400,
+      body,
+      credentials: 'include',
+      redirect: 'follow',
     });
 
-    const location = String(getResponseHeader(response, 'location') ?? '');
-    const responseUrl = String(response.request?.responseURL || '');
-    
-    // Android OkHttp automatically follows 302 redirects. If it failed, it lands on /?failed.
-    if (location.includes('failed') || responseUrl.includes('failed')) {
+    // After OkHttp follows the 302, the final URL tells us the outcome:
+    // - Success: firmware redirects to "/" — OkHttp lands on "/" (200)
+    // - Failure: firmware redirects to "/?failed" — OkHttp lands on "/?failed" (200)
+    const finalUrl = response.url || '';
+    if (finalUrl.includes('failed')) {
       return false;
     }
 
-    let sessionToken = extractBruceSessionToken(response.headers);
+    // Extract BRUCESESSION from the Set-Cookie header (may be visible on
+    // the final response in some RN versions).
+    let sessionToken: string | null = null;
+    const setCookie = response.headers.get('set-cookie');
+    if (setCookie) {
+      const m = setCookie.match(/BRUCESESSION=([^;,\s]+)/);
+      if (m) {
+        sessionToken = m[1];
+      }
+    }
 
-    // Step 2 (fallback): OkHttp cookie jar — Android intercepts Set-Cookie on redirects.
-    // Use a polling loop because WebKit CookieManager synchronizes with OkHttp asynchronously.
+    // Fallback: Poll CookieManager — OkHttp stores the Set-Cookie from
+    // the 302 in Android's system cookie jar. CookieManager reads from
+    // that jar, but synchronization can be asynchronous.
     if (!sessionToken) {
-      for (let i = 0; i < 4; i++) {
+      for (let i = 0; i < 5; i++) {
         try {
           const jar = await CookieManager.get(origin);
           const c = jar?.BRUCESESSION as any;
@@ -158,7 +140,7 @@ export async function login(
         } catch {
           /* CookieManager optional */
         }
-        await new Promise(resolve => setTimeout(resolve, 250));
+        await new Promise(resolve => setTimeout(resolve, 200));
       }
     }
 
@@ -170,7 +152,7 @@ export async function login(
 
     return false;
   } catch (err: any) {
-    if (err.code === 'ECONNABORTED' || err.message?.includes('Network Error')) {
+    if (err.message?.includes('Network request failed') || err.message?.includes('Network Error')) {
       throw new Error('Device unreachable. Make sure you are connected to the Bruce WiFi AP.');
     }
     throw err;
@@ -333,30 +315,53 @@ export async function sendCommand(command: string): Promise<string> {
   const sanitized = sanitizeCommand(command);
   return commandQueue.enqueue(async () => {
     const trimmed = sanitized.trim();
-    const body = `cmnd=${encodeURIComponent(trimmed)}`;
+    
+    // ESPAsyncWebServer has crashing issues with React Native Axios POST payloads.
+    // WebUI uses FormData() so we exactly mimic that here via native fetch().
+    const form = new FormData();
+    form.append('cmnd', trimmed);
 
     try {
-      // Send as x-www-form-urlencoded via our configured apiClient.
-      // ESPAsyncWebServer accepts this perfectly in hasArg()
-      const { data } = await apiClient.post<string>('/cm', body, {
-        headers: { 'Content-Type': 'application/x-www-form-urlencoded' },
-        responseType: 'text',
-        timeout: 15000,
+      const token = await secureStorage.getToken();
+      const headers: Record<string, string> = {};
+      if (token) {
+        headers['Cookie'] = `BRUCESESSION=${token}`;
+      }
+
+      const origin = _baseUrl.replace(/\/$/, '');
+      const controller = new AbortController();
+      const timeoutId = setTimeout(() => controller.abort(), 15000);
+
+      const response = await fetch(`${origin}/cm`, {
+        method: 'POST',
+        headers,
+        body: form,
+        signal: controller.signal,
       });
-      return data as unknown as string;
-    } catch (err: any) {
-      if (err.response) {
-        if (err.response.status === 401) {
+      clearTimeout(timeoutId);
+
+      if (!response.ok) {
+        if (response.status === 401) {
           notifyUnauthorized();
           const unauthorizedError = new Error('Unauthorized access (401)') as Error & { status?: number };
           unauthorizedError.status = 401;
           throw unauthorizedError;
         }
+        const errText = await response.text().catch(() => '');
         const responseError = new Error(
-          err.response.data || `Request failed with status ${err.response.status}`
+          errText || `Request failed with status ${response.status}`
         ) as Error & { status?: number };
-        responseError.status = err.response.status;
+        responseError.status = response.status;
         throw responseError;
+      }
+
+      return await response.text();
+    } catch (err: any) {
+      if (err.name === 'AbortError') {
+        throw new Error('Request timed out');
+      }
+      if (err.status) {
+        throw err;
       }
       throw new Error(err.message ?? 'Network error');
     }

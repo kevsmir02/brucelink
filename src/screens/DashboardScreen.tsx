@@ -102,8 +102,23 @@ export function DashboardScreen({ navigation }: Props) {
           </View>
         ) : null}
 
-        {/* RF & Sub-GHz */}
-        <Text style={s.sectionLabel}>RF &amp; SUB-GHZ</Text>
+        {/* Tools */}
+        <Text style={s.sectionLabel}>CORE TOOLS</Text>
+        <View style={s.grid}>
+          <QuickAction
+            icon="folder-outline"
+            label="File Explorer"
+            onPress={() => navigation.navigate('FileExplorer', {})}
+          />
+          <QuickAction
+            icon="monitor-screenshot"
+            label="Navigator"
+            onPress={() => navigation.navigate('Navigator')}
+          />
+        </View>
+
+        {/* File-Based Features */}
+        <Text style={s.sectionLabel}>SIGNALS (FILE-BASED)</Text>
         <View style={s.grid}>
           <QuickAction
             icon="radio-tower"
@@ -117,8 +132,8 @@ export function DashboardScreen({ navigation }: Props) {
           />
         </View>
 
-        {/* WiFi & Wireless */}
-        <Text style={s.sectionLabel}>WIRELESS</Text>
+        {/* On-Device Features */}
+        <Text style={s.sectionLabel}>ON-DEVICE (MANUAL)</Text>
         <View style={s.grid}>
           <QuickAction
             icon="wifi"
@@ -131,26 +146,38 @@ export function DashboardScreen({ navigation }: Props) {
             onPress={() => navigation.navigate('Ble')}
           />
         </View>
-
-        {/* Tools */}
-        <Text style={s.sectionLabel}>TOOLS</Text>
         <View style={s.grid}>
           <QuickAction
-            icon="folder-outline"
-            label="File Explorer"
-            onPress={() => navigation.navigate('FileExplorer', {})}
+            icon="map-marker"
+            label="GPS"
+            onPress={() => navigation.navigate('Gps')}
           />
           <QuickAction
-            icon="console"
-            label="Terminal"
-            onPress={() => navigation.navigate('Terminal')}
+            icon="chip"
+            label="NRF24"
+            onPress={() => navigation.navigate('Nrf24')}
+          />
+        </View>
+
+        {/* Admin */}
+        <Text style={s.sectionLabel}>ADMIN</Text>
+        <View style={s.grid}>
+          <QuickAction
+            icon="script-text-outline"
+            label="Payloads"
+            onPress={() => navigation.navigate('PayloadRunner')}
+          />
+          <QuickAction
+            icon="nfc"
+            label="RFID/NFC"
+            onPress={() => navigation.navigate('RfidNfc')}
           />
         </View>
         <View style={s.grid}>
           <QuickAction
-            icon="monitor-screenshot"
-            label="Navigator"
-            onPress={() => navigation.navigate('Navigator')}
+            icon="console"
+            label="Terminal"
+            onPress={() => navigation.navigate('Terminal')}
           />
           <QuickAction
             icon="cog-outline"
@@ -159,11 +186,7 @@ export function DashboardScreen({ navigation }: Props) {
           />
         </View>
         <View style={s.grid}>
-          <QuickAction
-            icon="script-text-outline"
-            label="Payloads"
-            onPress={() => navigation.navigate('PayloadRunner')}
-          />
+          <View style={{ flex: 1, marginHorizontal: 4 }} />
           <QuickAction
             icon="restart"
             label="Reboot"

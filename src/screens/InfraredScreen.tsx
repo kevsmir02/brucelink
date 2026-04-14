@@ -1,215 +1,176 @@
-import React, { useState, useCallback } from 'react';
+import React, { useRef, useState } from 'react';
 import {
   View,
   Text,
   StyleSheet,
   ScrollView,
   TouchableOpacity,
-  TextInput,
-  Alert,
   ActivityIndicator,
+  FlatList,
   ToastAndroid,
 } from 'react-native';
 import { NativeStackScreenProps } from '@react-navigation/native-stack';
 import Icon from 'react-native-vector-icons/MaterialCommunityIcons';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
 
-import { RootStackParamList } from '../types';
-import { sendCommand } from '../services/api';
-import { ir, loader } from '../services/commands';
+import { RootStackParamList, FileEntry } from '../types';
 import { useTheme } from '../contexts/ThemeContext';
+import { DeviceScreenBuffer, DeviceScreenBufferRef } from '../components/DeviceScreenBuffer';
+import { sendCommand } from '../services/api';
+import { useFileList } from '../hooks/useFileList';
+import { FileRowWithDelete } from '../components/FileRowWithDelete';
 
 type Props = NativeStackScreenProps<RootStackParamList, 'Infrared'>;
-
-const IR_PROTOCOLS = ['NEC', 'SIRC', 'RC5', 'RC6', 'Samsung32'] as const;
 
 export function InfraredScreen(_props: Props) {
   const insets = useSafeAreaInsets();
   const theme = useTheme();
   const s = makeStyles(theme);
 
+  const bufRef = useRef<DeviceScreenBufferRef>(null);
   const [busy, setBusy] = useState(false);
-  const [activeOp, setActiveOp] = useState<string | null>(null);
 
-  // Capture state
-  const [captureRaw, setCaptureRaw] = useState(false);
+  // File explorer for /ir
+  const folderPath = '/ir';
+  const { entries, isLoading, error, refetch, deleteFile, isRefetching } = useFileList('SD', folderPath);
+  
+  // Only show .ir files
+  const irFiles = entries.filter((e: FileEntry) => e.type === 'file' && e.name.endsWith('.ir'));
 
-  // Transmit state
-  const [txProtocol, setTxProtocol] = useState<string>('NEC');
-  const [txAddress, setTxAddress] = useState('');
-  const [txCommand, setTxCommand] = useState('');
-
-  // File player state
-  const [filePath, setFilePath] = useState('');
-
-  const exec = useCallback(async (label: string, cmd: string) => {
+  const handleTransmit = async (entry: FileEntry) => {
     setBusy(true);
-    setActiveOp(label);
     try {
-      const result = await sendCommand(cmd);
-      ToastAndroid.show(result || 'Command sent', ToastAndroid.SHORT);
-    } catch (err: any) {
-      Alert.alert('Error', err.message ?? 'Command failed');
+      const res = await sendCommand(`ir tx_from_file "${entry.path}"`);
+      ToastAndroid.show(res || 'Transmitting...', ToastAndroid.SHORT);
+    } catch {
+      ToastAndroid.show('Transmit failed', ToastAndroid.SHORT);
     } finally {
       setBusy(false);
-      setActiveOp(null);
     }
-  }, []);
-
-  const handleCapture = () => {
-    const cmd = ir.rx({ raw: captureRaw });
-    exec('Capture', cmd);
   };
 
-  const handleTransmit = () => {
-    if (!txAddress.trim() || !txCommand.trim()) {
-      Alert.alert('Error', 'Enter both address and command');
-      return;
+  const handleDelete = async (entry: FileEntry) => {
+    try {
+      await deleteFile(entry.path);
+      ToastAndroid.show('Deleted', ToastAndroid.SHORT);
+    } catch {
+      ToastAndroid.show('Failed to delete', ToastAndroid.SHORT);
     }
-    const cmd = ir.tx({
-      protocol: txProtocol,
-      address: txAddress.trim(),
-      command: txCommand.trim(),
-    });
-    exec('Transmit', cmd);
   };
 
-  const handlePlayFile = () => {
-    if (!filePath.trim()) {
-      Alert.alert('Error', 'Enter file path (e.g. /ir/tv_off.ir)');
-      return;
-    }
-    const cmd = ir.txFromFile({ filepath: filePath.trim() });
-    exec('File TX', cmd);
-  };
-
-  const handleTvBGone = () => {
-    exec('TV-B-Gone', loader.open('TV-B-Gone'));
+  const execNav = async (cmd: string) => {
+    try {
+      await sendCommand(cmd);
+      await new Promise(r => setTimeout(r, 200));
+      bufRef.current?.refresh();
+      bufRef.current?.setAutoReload(500);
+      setTimeout(() => bufRef.current?.setAutoReload(2000), 1000);
+    } catch { /* ignore */ }
   };
 
   return (
     <ScrollView
       style={s.root}
       contentContainerStyle={[s.content, { paddingBottom: Math.max(insets.bottom, 16) + 16 }]}>
-
+      
       {busy && (
         <View style={s.busyRow}>
           <ActivityIndicator color={theme.colors.primary} size="small" />
-          <Text style={s.busyText}>{activeOp}…</Text>
+          <Text style={s.busyText}>Executing...</Text>
         </View>
       )}
 
-      {/* Capture Section */}
-      <SectionHeader title="CAPTURE" icon="arrow-collapse-down" theme={theme} s={s} />
-      <View style={s.card}>
-        <Text style={s.cardNote}>
-          Listen for infrared signals. Uses ir.rx command.
-        </Text>
-        <View style={s.row}>
-          <TouchableOpacity style={s.primaryBtn} onPress={handleCapture} disabled={busy}>
-            <Icon name="access-point" size={18} color={theme.colors.background} />
-            <Text style={s.primaryBtnText}>Start Capture</Text>
-          </TouchableOpacity>
-          <TouchableOpacity
-            style={[s.chipToggle, captureRaw && s.chipToggleActive]}
-            onPress={() => setCaptureRaw(!captureRaw)}>
-            <Text style={[s.chipToggleText, captureRaw && s.chipToggleTextActive]}>RAW</Text>
-          </TouchableOpacity>
-        </View>
+      {/* SAVED SIGNALS */}
+      <View style={s.headerRow}>
+         <SectionHeader title="SAVED SIGNALS" icon="remote" theme={theme} s={s} />
+         <TouchableOpacity
+           style={s.refreshBtn}
+           onPress={() => refetch()}
+           disabled={isLoading || isRefetching}>
+           <Icon name="refresh" size={16} color={theme.colors.primary} />
+         </TouchableOpacity>
       </View>
 
-      {/* Transmit Section */}
-      <SectionHeader title="TRANSMIT" icon="remote" theme={theme} s={s} />
-      <View style={s.card}>
-        <Text style={s.cardNote}>
-          Send an infrared signal with a specific protocol.
-        </Text>
-        <Text style={s.inputLabel}>Protocol</Text>
-        <View style={s.protocolRow}>
-          {IR_PROTOCOLS.map(p => (
-            <TouchableOpacity
-              key={p}
-              style={[s.protocolChip, txProtocol === p && s.protocolChipActive]}
-              onPress={() => setTxProtocol(p)}>
-              <Text style={[s.protocolText, txProtocol === p && s.protocolTextActive]}>{p}</Text>
-            </TouchableOpacity>
-          ))}
-        </View>
-        <View style={s.row}>
-          <View style={{ flex: 1 }}>
-            <Text style={s.inputLabel}>Address</Text>
-            <TextInput
-              style={s.input}
-              value={txAddress}
-              onChangeText={setTxAddress}
-              placeholder="e.g. 0x04"
-              placeholderTextColor={theme.colors.textMuted}
-              autoCapitalize="none"
+      <View style={s.filesContainer}>
+        {isLoading && !isRefetching ? (
+          <ActivityIndicator color={theme.colors.primary} style={{ marginVertical: 20 }} />
+        ) : error ? (
+          <Text style={s.errorText}>Could not load saved signals.</Text>
+        ) : irFiles.length === 0 ? (
+          <View style={s.emptyBox}>
+            <Text style={s.emptyText}>No .ir files found in /ir on SD card.</Text>
+          </View>
+        ) : (
+          irFiles.map((item) => (
+            <FileRowWithDelete
+              key={item.path}
+              entry={item}
+              onPress={() => handleTransmit(item)}
+              onLongPress={() => {}}
+              onDelete={() => handleDelete(item)}
             />
-          </View>
-          <View style={{ flex: 1, marginLeft: 8 }}>
-            <Text style={s.inputLabel}>Command</Text>
-            <TextInput
-              style={s.input}
-              value={txCommand}
-              onChangeText={setTxCommand}
-              placeholder="e.g. 0x08"
-              placeholderTextColor={theme.colors.textMuted}
-              autoCapitalize="none"
-            />
-          </View>
+          ))
+        )}
+      </View>
+
+      <TouchableOpacity 
+        style={s.browseBtn}
+        onPress={() => _props.navigation.navigate('FileExplorer', { fs: 'SD', folder: folderPath })}>
+        <Icon name="folder-open" size={18} color={theme.colors.primary} />
+        <Text style={s.browseBtnText}>Open File Explorer</Text>
+      </TouchableOpacity>
+
+      <DeviceScreenBuffer ref={bufRef} defaultAutoReloadMs={2000} />
+
+      {/* D-PAD */}
+      <SectionHeader title="MANUAL CONTROL" icon="gamepad" theme={theme} s={s} />
+      <View style={s.dpadContainer}>
+        <View style={s.dpadRow}>
+          <NavButton icon="arrow-u-left-top" label="Esc" onPress={() => execNav('nav esc')} />
+          <NavButton icon="chevron-up" label="Up" onPress={() => execNav('nav up')} />
+          <NavButton icon="refresh" label="Refresh" onPress={() => bufRef.current?.refresh()} />
         </View>
-        <TouchableOpacity style={s.primaryBtn} onPress={handleTransmit} disabled={busy}>
-          <Icon name="broadcast" size={18} color={theme.colors.background} />
-          <Text style={s.primaryBtnText}>Transmit</Text>
-        </TouchableOpacity>
+        <View style={s.dpadRow}>
+          <NavButton icon="chevron-left" label="Prev" onPress={() => execNav('nav prev')} />
+          <NavButton icon="circle-slice-8" label="Select" onPress={() => execNav('nav sel')} isCenter />
+          <NavButton icon="chevron-right" label="Next" onPress={() => execNav('nav next')} />
+        </View>
+        <View style={s.dpadRow}>
+          <View style={s.navBtnEmpty} />
+          <NavButton icon="chevron-down" label="Down" onPress={() => execNav('nav down')} />
+          <View style={s.navBtnEmpty} />
+        </View>
       </View>
 
-      {/* Quick Actions */}
-      <SectionHeader title="QUICK ACTIONS" icon="lightning-bolt" theme={theme} s={s} />
-      <View style={s.card}>
-        <TouchableOpacity style={s.actionRow} onPress={handleTvBGone} disabled={busy}>
-          <Icon name="television-off" size={20} color={theme.colors.text} />
-          <View style={s.actionText}>
-            <Text style={s.actionLabel}>TV-B-Gone</Text>
-            <Text style={s.actionSublabel}>Cycle through known TV power-off codes</Text>
-          </View>
-        </TouchableOpacity>
-      </View>
-
-      {/* File Player Section */}
-      <SectionHeader title="FILE PLAYER" icon="file-music-outline" theme={theme} s={s} />
-      <View style={s.card}>
-        <Text style={s.cardNote}>
-          Transmit IR signal from a .ir file on SD card. Uses ir.txFromFile command.
-        </Text>
-        <Text style={s.inputLabel}>File Path</Text>
-        <TextInput
-          style={s.input}
-          value={filePath}
-          onChangeText={setFilePath}
-          placeholder="/ir/tv_off.ir"
-          placeholderTextColor={theme.colors.textMuted}
-          autoCapitalize="none"
-        />
-        <TouchableOpacity style={s.primaryBtn} onPress={handlePlayFile} disabled={busy}>
-          <Icon name="play" size={18} color={theme.colors.background} />
-          <Text style={s.primaryBtnText}>Play File</Text>
-        </TouchableOpacity>
-      </View>
     </ScrollView>
   );
 }
 
-function SectionHeader({ title, icon, theme, s }: {
-  title: string; icon: string;
-  theme: ReturnType<typeof useTheme>; s: ReturnType<typeof makeStyles>;
-}) {
+function SectionHeader({ title, icon, theme, s }: any) {
   return (
-    <View style={s.sectionHeader}>
+    <View style={[s.sectionHeader, { marginTop: 0 }]}>
       <Icon name={icon} size={14} color={theme.colors.primary} />
       <Text style={s.sectionTitle}>{title}</Text>
     </View>
+  );
+}
+
+function NavButton({ icon, label, onPress, disabled, isCenter }: any) {
+  const theme = useTheme();
+  const s = makeStyles(theme);
+  return (
+    <TouchableOpacity
+      style={[s.navBtn, isCenter && s.navBtnCenter, disabled && s.navBtnDisabled]}
+      onPress={onPress}
+      disabled={disabled}
+      activeOpacity={0.6}>
+      <Icon
+        name={icon}
+        size={isCenter ? 32 : 24}
+        color={disabled ? theme.colors.border : isCenter ? theme.colors.primary : theme.colors.text}
+      />
+      <Text style={[s.navBtnLabel, isCenter && s.navBtnLabelCenter]}>{label}</Text>
+    </TouchableOpacity>
   );
 }
 
@@ -217,67 +178,76 @@ function makeStyles(theme: ReturnType<typeof useTheme>) {
   return StyleSheet.create({
     root: { flex: 1, backgroundColor: theme.colors.background },
     content: { padding: theme.spacing.md },
+    busyRow: {
+      flexDirection: 'row', alignItems: 'center', gap: 8,
+      backgroundColor: theme.colors.surface, padding: 10,
+      borderRadius: theme.radius.sm, marginBottom: 16,
+    },
+    busyText: { color: theme.colors.textMuted, fontSize: 13 },
+    headerRow: {
+      flexDirection: 'row', alignItems: 'center', justifyContent: 'space-between',
+      marginTop: 20, marginBottom: theme.spacing.md,
+    },
+    refreshBtn: {
+      padding: 4,
+      marginRight: 4,
+    },
     sectionHeader: {
       flexDirection: 'row', alignItems: 'center', gap: 6,
-      marginTop: 20, marginBottom: theme.spacing.sm, marginLeft: 4,
+      marginLeft: 4,
     },
     sectionTitle: {
       color: theme.colors.textMuted, fontSize: 11,
       fontWeight: '700', letterSpacing: 1.5,
     },
-    card: {
-      backgroundColor: theme.colors.surface, borderRadius: theme.radius.md,
-      borderWidth: 1, borderColor: theme.colors.border, padding: 14,
+    filesContainer: {
+      backgroundColor: theme.colors.surface,
+      borderRadius: theme.radius.md,
+      borderWidth: 1,
+      borderColor: theme.colors.border,
+      overflow: 'hidden',
+      marginBottom: 12,
+      maxHeight: 250, // Keep it compact
     },
-    cardNote: {
-      color: theme.colors.textMuted, fontSize: 13, lineHeight: 18, marginBottom: 12,
+    emptyBox: {
+      padding: 24, alignItems: 'center',
     },
-    inputLabel: { color: theme.colors.textMuted, fontSize: 12, marginBottom: 4 },
-    input: {
-      backgroundColor: theme.colors.background, borderWidth: 1,
-      borderColor: theme.colors.border, borderRadius: theme.radius.sm,
-      color: theme.colors.text, paddingHorizontal: 12, paddingVertical: 10,
-      fontSize: 14, fontFamily: theme.typography.mono, marginBottom: 10,
+    emptyText: {
+      color: theme.colors.textMuted, fontSize: 13, textAlign: 'center',
     },
-    row: { flexDirection: 'row', alignItems: 'flex-end', gap: 8 },
-    primaryBtn: {
-      backgroundColor: theme.colors.primary, borderRadius: theme.radius.md,
-      paddingVertical: 12, flexDirection: 'row', alignItems: 'center',
-      justifyContent: 'center', gap: 8, marginTop: 4, flex: 1,
+    errorText: {
+      color: theme.colors.error, fontSize: 13, padding: 16, textAlign: 'center',
     },
-    primaryBtnText: {
-      color: theme.colors.background, fontWeight: '700', fontSize: 14,
+    browseBtn: {
+      flexDirection: 'row', alignItems: 'center', justifyContent: 'center', gap: 8,
+      backgroundColor: theme.colors.surface, borderWidth: 1, borderColor: theme.colors.border,
+      borderRadius: theme.radius.md, padding: 14, marginBottom: 20,
     },
-    busyRow: {
-      flexDirection: 'row', alignItems: 'center', gap: 8,
-      backgroundColor: theme.colors.surface, padding: 10,
-      borderRadius: theme.radius.sm, marginBottom: 8,
+    browseBtnText: {
+      color: theme.colors.text, fontSize: 14, fontWeight: '600',
     },
-    busyText: { color: theme.colors.textMuted, fontSize: 13 },
-    protocolRow: { flexDirection: 'row', flexWrap: 'wrap', gap: 6, marginBottom: 10 },
-    protocolChip: {
-      borderWidth: 1, borderColor: theme.colors.border, borderRadius: theme.radius.sm,
-      paddingHorizontal: 12, paddingVertical: 6,
+    dpadContainer: {
+      backgroundColor: theme.colors.surface,
+      borderRadius: theme.radius.md,
+      padding: 16,
+      borderWidth: 1,
+      borderColor: theme.colors.border,
+      alignItems: 'center',
     },
-    protocolChipActive: {
-      backgroundColor: theme.colors.primary, borderColor: theme.colors.primary,
+    dpadRow: {
+      flexDirection: 'row', justifyContent: 'center', marginBottom: 8,
     },
-    protocolText: { color: theme.colors.textMuted, fontSize: 12, fontWeight: '600' },
-    protocolTextActive: { color: theme.colors.background },
-    chipToggle: {
-      borderWidth: 1, borderColor: theme.colors.border, borderRadius: theme.radius.sm,
-      paddingHorizontal: 14, paddingVertical: 12, marginBottom: 10,
+    navBtn: {
+      width: 70, height: 70, backgroundColor: theme.colors.background,
+      justifyContent: 'center', alignItems: 'center', borderRadius: theme.radius.sm,
+      marginHorizontal: 4, borderWidth: 1, borderColor: theme.colors.border,
     },
-    chipToggleActive: {
-      backgroundColor: theme.colors.primary, borderColor: theme.colors.primary,
+    navBtnCenter: {
+      borderColor: theme.colors.primary, borderWidth: 2,
     },
-    chipToggleText: { color: theme.colors.textMuted, fontSize: 12, fontWeight: '700' },
-    chipToggleTextActive: { color: theme.colors.background },
-    actionRow: {
-      flexDirection: 'row', alignItems: 'center', paddingVertical: 10, gap: 14,
-    },
-    actionText: { flex: 1 },
-    actionLabel: { color: theme.colors.text, fontSize: 15 },
-    actionSublabel: { color: theme.colors.textMuted, fontSize: 12, marginTop: 2 },
+    navBtnDisabled: { opacity: 0.5 },
+    navBtnLabel: { color: theme.colors.textMuted, fontSize: 10, marginTop: 4 },
+    navBtnLabelCenter: { color: theme.colors.primary, fontWeight: '600' },
+    navBtnEmpty: { width: 70, marginHorizontal: 4 },
   });
 }
