@@ -59,6 +59,14 @@ Runs a local Express server that mimics the Bruce HTTP API. Useful for UI develo
 - Firmware endpoint reference: `docs/bruce_firmware_api_docs.md`
 - Release history: [`CHANGELOG.md`](CHANGELOG.md)
 
+## Current Limitations & Future Roadmap
+
+BruceLink currently operates as a "Smart Remote" and File Manager. Because the stock Bruce firmware (v1.14) relies on a Presentation Layer architecture (drawing scan results directly to the screen) rather than a Data Layer (serving JSON APIs), the app cannot natively render complex hardware outputs like BLE scans, NRF24 targets, or GPS coordinates. 
+
+To prevent device kernel panics, these features are currently operated via a live remote-control screen mirror (`/getscreen`). 
+
+**Phase 2 Roadmap:** To achieve seamless, native mobile screens for all features, we will need to fork and develop **custom C++ firmware**. By adding custom REST API endpoints (e.g., `/api/ble/scan`), the device will be able to serve structured JSON data directly to BruceLink, allowing for a fully native smartphone experience.
+
 ## License
 
 MIT

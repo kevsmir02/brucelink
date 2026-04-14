@@ -33,6 +33,14 @@ The target hardware is an ESP32-S3 N16R8 (Smoochie Board) running Bruce firmware
 - Configures device settings: brightness, sleep, screen color, factory reset
 - Detects WiFi disconnection and shows a persistent offline banner
 
+**Target Firmware Limitations & Phase 2:**
+
+BruceLink is currently constrained by the stock `v1.14` firmware architecture. The stock firmware uses a **Presentation Layer**, meaning it renders live data (like BLE lists or GPS coordinates) directly to the physical TFT screen instead of serving it as JSON data. 
+
+To ensure complete crash-prevention and stability over HTTP, the app strictly uses a "Smart Remote" and File-Manager pattern. Complex data features do not have native mobile screens; instead, they are navigated via a live screen capture of the physical device (`/getscreen`). 
+
+**Future Roadmap (Phase 2):** To build true, native React Native interfaces for BLE, NRF24, WiFi, and GPS, a custom branch of the Bruce C++ firmware must be developed. By implementing dedicated JSON API endpoints (`/api/ble/scan`), the physical restrictions will be completely bypassed.
+
 ---
 
 ## 2. Architecture
