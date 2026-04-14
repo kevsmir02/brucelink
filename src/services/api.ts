@@ -135,22 +135,30 @@ export async function login(
     });
 
     const location = String(getResponseHeader(response, 'location') ?? '');
-    if (location.includes('failed')) {
+    const responseUrl = String(response.request?.responseURL || '');
+    
+    // Android OkHttp automatically follows 302 redirects. If it failed, it lands on /?failed.
+    if (location.includes('failed') || responseUrl.includes('failed')) {
       return false;
     }
 
     let sessionToken = extractBruceSessionToken(response.headers);
 
-    // Step 2 (fallback): OkHttp cookie jar — Android may intercept Set-Cookie.
+    // Step 2 (fallback): OkHttp cookie jar — Android intercepts Set-Cookie on redirects.
+    // Use a polling loop because WebKit CookieManager synchronizes with OkHttp asynchronously.
     if (!sessionToken) {
-      try {
-        const jar = await CookieManager.get(origin);
-        const c = jar?.BRUCESESSION;
-        if (c && typeof c === 'object' && 'value' in c && typeof c.value === 'string') {
-          sessionToken = c.value;
+      for (let i = 0; i < 4; i++) {
+        try {
+          const jar = await CookieManager.get(origin);
+          const c = jar?.BRUCESESSION as any;
+          if (c) {
+            sessionToken = typeof c === 'object' && 'value' in c ? String(c.value) : String(c);
+            if (sessionToken) break;
+          }
+        } catch {
+          /* CookieManager optional */
         }
-      } catch {
-        /* CookieManager optional */
+        await new Promise(resolve => setTimeout(resolve, 250));
       }
     }
 
@@ -387,7 +395,7 @@ export async function getScreen(): Promise<string | null> {
   }
 }
 
-export async function updateCredentials(username: string, password: string): Promise<string> {
+export async function updateWebUICreds(username: string, password: string): Promise<string> {
   const { data } = await apiClient.get<string>('/wifi', {
     params: { usr: username, pwd: password },
     responseType: 'text',

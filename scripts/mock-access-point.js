@@ -413,7 +413,8 @@ if (require.main === module) {
     .then(() => {
       console.log(`Mock Bruce AP running at ${mockServer.url}`);
       console.log(`Use this URL in Android emulator login: ${mockServer.emulatorUrl}`);
-      console.log(`Credentials: any non-empty username / any non-empty password`);
+      console.log(`Credentials: username=admin / password=bruce (Bruce firmware defaults)`);
+      console.log(`Mock accepts any non-empty credentials for testing.`);
     })
     .catch((error) => {
       console.error(`Failed to start mock AP: ${error.message}`);

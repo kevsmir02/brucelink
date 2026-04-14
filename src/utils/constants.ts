@@ -65,7 +65,7 @@ export const STORAGE_KEYS = {
 
 export const DEFAULT_BASE_URL = 'http://172.0.0.1';
 export const DEFAULT_USERNAME = 'admin';
-export const DEFAULT_PASSWORD = 'admin';
+export const DEFAULT_PASSWORD = 'bruce'; // Bruce firmware default (config.h: Credential webUI = {"admin", "bruce"})
 
 // Maps file extensions to the CLI command sent to /cm to execute them.
 // All strings verified against /src/core/serial_commands/*.cpp in the firmware repo.

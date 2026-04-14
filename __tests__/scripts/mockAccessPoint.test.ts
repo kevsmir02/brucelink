@@ -23,7 +23,7 @@ describe('mock access point server', () => {
   it('authenticates /login and returns session cookie', async () => {
     const response = await fetch(
       `${mockServer.url}/login`,
-      loginOptions('username=admin&password=admin'),
+      loginOptions('username=admin&password=bruce'),
     );
 
     expect(response.status).toBe(200);

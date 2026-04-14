@@ -14,7 +14,7 @@ import { NativeStackScreenProps } from '@react-navigation/native-stack';
 import Icon from 'react-native-vector-icons/MaterialCommunityIcons';
 
 import { RootStackParamList } from '../types';
-import { updateCredentials, rebootDevice, getSystemInfo } from '../services/api';
+import { updateWebUICreds, rebootDevice, getSystemInfo } from '../services/api';
 import { useAuth } from '../contexts/AuthContext';
 import { ThemeModeSelector } from '../components/ThemeModeSelector';
 import { useTheme, useThemeMode } from '../contexts/ThemeContext';
@@ -52,7 +52,7 @@ export function SettingsScreen({ navigation: _navigation }: Props) {
     }
     setCredSaving(true);
     try {
-      const result = await updateCredentials(newUsername, newPassword);
+      const result = await updateWebUICreds(newUsername, newPassword);
       ToastAndroid.show(result || 'Credentials updated', ToastAndroid.LONG);
       setNewUsername('');
       setNewPassword('');
