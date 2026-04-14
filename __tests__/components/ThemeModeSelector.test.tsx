@@ -3,6 +3,7 @@ import ReactTestRenderer from 'react-test-renderer';
 import { Text, TouchableOpacity } from 'react-native';
 
 import { ThemeModeSelector } from '../../src/components/ThemeModeSelector';
+import { ThemeProvider } from '../../src/contexts/ThemeContext';
 
 describe('ThemeModeSelector', () => {
   it('shows Light, Dark, and System options and emits selection', () => {
@@ -11,7 +12,9 @@ describe('ThemeModeSelector', () => {
     let renderer: ReactTestRenderer.ReactTestRenderer;
     ReactTestRenderer.act(() => {
       renderer = ReactTestRenderer.create(
-        <ThemeModeSelector value="dark" onChange={onChange} />,
+        <ThemeProvider>
+          <ThemeModeSelector value="dark" onChange={onChange} />
+        </ThemeProvider>,
       );
     });
 

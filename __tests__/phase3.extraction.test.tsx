@@ -3,6 +3,7 @@ import ReactTestRenderer from 'react-test-renderer';
 import { TouchableOpacity } from 'react-native';
 
 import { FsToggle } from '../src/components/FsToggle';
+import { ThemeProvider } from '../src/contexts/ThemeContext';
 import { navigatorWebSource } from '../src/assets/navigatorWebSource.ts';
 
 describe('Phase 3 extraction contracts', () => {
@@ -12,7 +13,9 @@ describe('Phase 3 extraction contracts', () => {
     let renderer: ReactTestRenderer.ReactTestRenderer;
     await ReactTestRenderer.act(() => {
       renderer = ReactTestRenderer.create(
-        <FsToggle fs="SD" onSwitchFs={onSwitchFs} />,
+        <ThemeProvider>
+          <FsToggle fs="SD" onSwitchFs={onSwitchFs} />
+        </ThemeProvider>,
       );
     });
 

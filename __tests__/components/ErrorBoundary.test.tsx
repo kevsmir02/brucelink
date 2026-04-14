@@ -3,6 +3,7 @@ import ReactTestRenderer from 'react-test-renderer';
 import { Text, TouchableOpacity } from 'react-native';
 
 import { ErrorBoundary } from '../../src/components/ErrorBoundary.tsx';
+import { ThemeProvider } from '../../src/contexts/ThemeContext';
 
 describe('ErrorBoundary', () => {
   beforeEach(() => {
@@ -21,9 +22,11 @@ describe('ErrorBoundary', () => {
     let renderer: ReactTestRenderer.ReactTestRenderer;
     ReactTestRenderer.act(() => {
       renderer = ReactTestRenderer.create(
-        <ErrorBoundary>
-          <Bomb />
-        </ErrorBoundary>,
+        <ThemeProvider>
+          <ErrorBoundary>
+            <Bomb />
+          </ErrorBoundary>
+        </ThemeProvider>,
       );
     });
 
@@ -44,9 +47,11 @@ describe('ErrorBoundary', () => {
     let renderer: ReactTestRenderer.ReactTestRenderer;
     ReactTestRenderer.act(() => {
       renderer = ReactTestRenderer.create(
-        <ErrorBoundary>
-          <Flaky />
-        </ErrorBoundary>,
+        <ThemeProvider>
+          <ErrorBoundary>
+            <Flaky />
+          </ErrorBoundary>
+        </ThemeProvider>,
       );
     });
 

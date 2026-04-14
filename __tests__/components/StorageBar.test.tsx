@@ -3,6 +3,7 @@ import ReactTestRenderer from 'react-test-renderer';
 import { Text } from 'react-native';
 
 import { StorageBar, parseSize } from '../../src/components/StorageBar';
+import { ThemeProvider } from '../../src/contexts/ThemeContext';
 
 describe('StorageBar', () => {
   it('parses sizes from firmware output', () => {
@@ -15,14 +16,16 @@ describe('StorageBar', () => {
     let renderer: ReactTestRenderer.ReactTestRenderer;
     ReactTestRenderer.act(() => {
       renderer = ReactTestRenderer.create(
-        <StorageBar
-          label="SD"
-          info={{
-            used: '500 kB',
-            total: '2.0 MB',
-            free: '1.5 MB',
-          }}
-        />,
+        <ThemeProvider>
+          <StorageBar
+            label="SD"
+            info={{
+              used: '500 kB',
+              total: '2.0 MB',
+              free: '1.5 MB',
+            }}
+          />
+        </ThemeProvider>,
       );
     });
 
